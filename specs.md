@@ -349,7 +349,7 @@ Reglas comunes:
 
 ### 14.1. Notas
 
-Bloc de texto libre por novela (escaleta, ideas, fichas de personajes…). Se abre desde la paleta con «Notas»: un panel con un `textarea` a la misma fuente y tamaño que el resto de paneles, y un botón «Cerrar» (también `Esc`). Cada pulsación se refleja en el documento; no hay botón de guardar.
+Bloc de texto libre por novela (escaleta, ideas, fichas de personajes…). Se abre desde la paleta con «Notas»: un panel alto (casi toda la ventana, como el del diccionario) con un `textarea` en la fuente de la interfaz a tamaño reducido, y un botón «Cerrar» (también `Esc`). Cada pulsación se refleja en el documento; no hay botón de guardar.
 
 ### 14.2. Diccionario personal
 
@@ -360,7 +360,7 @@ Formas de añadir una palabra, todas iniciadas por el usuario:
 - Atajo `Cmd/Ctrl+Shift+D` con el cursor sobre la palabra.
 - Paleta de comandos → «Añadir “palabra” al diccionario» (aparece como primera acción cuando el cursor está sobre una palabra marcada).
 
-Desde la paleta también se puede «Gestionar diccionario» (lista con eliminación).
+Desde la paleta también se puede abrir «Diccionario» (lista con eliminación).
 
 Migración: las palabras que versiones anteriores guardaban en IndexedDB se trasladan a la primera novela que se abra con escritura directa y se borran del navegador (se avisa con un mensaje).
 
@@ -426,7 +426,7 @@ Toda la funcionalidad oculta se alcanza desde **un único punto**: la paleta de 
 | Guardar ahora (fuerza `flush`) | `Cmd/Ctrl+S` |
 | Cerrar overlay | `Esc` |
 
-Acciones solo en paleta: exportar TXT, notas, activar/desactivar corrector, texto centrado, asistencia literaria, gestionar diccionario. Para cambiar de novela se vuelve a la pantalla inicial recargando la página; no hay comando. Solo por atajo (no aparecen en la paleta): guardar ahora, tamaño del texto.
+Orden de la paleta: Capítulos, Notas, Pantalla completa, tema, texto centrado, y después el resto (exportar TXT, asistencia literaria, corrector, añadir palabra, Diccionario). Acciones solo en paleta: exportar TXT, notas, activar/desactivar corrector, texto centrado, asistencia literaria, diccionario. Para cambiar de novela se vuelve a la pantalla inicial recargando la página; no hay comando. Solo por atajo (no aparecen en la paleta): guardar ahora, tamaño del texto.
 
 `Cmd/Ctrl+S` existe porque el reflejo del usuario es pulsarlo; no debe abrir el diálogo del navegador.
 

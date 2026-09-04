@@ -32,9 +32,20 @@ export function isOverlayOpen(): boolean {
 }
 
 /** Monta un overlay genérico con cierre por Esc y clic fuera; devuelve el nodo del panel. */
-export function openOverlay(panel: HTMLElement, onClose?: () => void, restoreFocus?: () => void): { close: () => void } {
+export interface OverlayOptions {
+  onClose?: () => void;
+  restoreFocus?: () => void;
+  /** Paneles que ocupan casi toda la altura (notas, diccionario). */
+  tall?: boolean;
+}
+
+export function openOverlay(panel: HTMLElement, o: OverlayOptions = {}): { close: () => void } {
   closeOverlay();
-  const overlay = el('div', { class: 'overlay', attrs: { role: 'dialog', 'aria-modal': 'true' } }, panel);
+  const overlay = el(
+    'div',
+    { class: o.tall ? 'overlay overlay--tall' : 'overlay', attrs: { role: 'dialog', 'aria-modal': 'true' } },
+    panel,
+  );
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -47,8 +58,8 @@ export function openOverlay(panel: HTMLElement, onClose?: () => void, restoreFoc
     overlay.remove();
     document.removeEventListener('keydown', onKey, true);
     current = null;
-    onClose?.();
-    restoreFocus?.();
+    o.onClose?.();
+    o.restoreFocus?.();
   };
   overlay.addEventListener('mousedown', (e) => {
     if (e.target === overlay) close();
@@ -152,7 +163,7 @@ export function openPalette(o: PaletteOptions, restoreFocus?: () => void): void 
     if (idx >= 0) active = idx;
   }
 
-  const handle = openOverlay(panel, o.onClose, restoreFocus);
+  const handle = openOverlay(panel, { onClose: o.onClose, restoreFocus });
   render();
   (input ?? list).focus();
 }

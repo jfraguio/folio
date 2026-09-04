@@ -33,11 +33,11 @@ export function openDictionaryManager(dict: PersonalDictionary, onChange: () => 
   };
   const panel = el(
     'div',
-    { class: 'panel' },
+    { class: 'panel panel--tall' },
     el('div', { class: 'panel__footer', style: { borderTop: 'none', borderBottom: '1px solid var(--panel-border)' } }, 'Diccionario personal · pulsa una palabra para quitarla'),
     words,
     el('div', { class: 'panel__actions' }, el('button', { class: 'btn btn--quiet', on: { click: () => handle.close() } }, 'Cerrar')),
   );
-  const handle = openOverlay(panel, undefined, restoreFocus);
+  const handle = openOverlay(panel, { restoreFocus, tall: true });
   render();
 }

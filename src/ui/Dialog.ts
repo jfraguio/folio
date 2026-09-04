@@ -27,6 +27,6 @@ export function openDialog(paragraphs: string[], actions: DialogAction[], restor
     ),
   );
   const panel = el('div', { class: 'panel' }, body, el('div', { class: 'panel__actions' }, ...buttons));
-  const handle = openOverlay(panel, undefined, restoreFocus);
+  const handle = openOverlay(panel, { restoreFocus });
   (buttons.find((_, i) => actions[i]?.primary) ?? buttons[0])?.focus();
 }

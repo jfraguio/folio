@@ -186,8 +186,16 @@
 
 /* ---------- Notas ---------- */
 
+.overlay--tall {
+  padding-top: 6vh;
+}
+
+.panel--tall {
+  max-height: 88vh;
+}
+
 .panel--notes {
-  height: 70vh;
+  height: 88vh;
 }
 
 .notes__text {
@@ -196,6 +204,7 @@
   min-height: 0;
   resize: none;
   font: inherit;
+  font-size: 0.8rem;
   line-height: 1.55;
   color: var(--fg);
   background: transparent;

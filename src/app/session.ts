@@ -314,6 +314,53 @@ export async function startSession(o: SessionOptions): Promise<void> {
       },
     },
     {
+      id: 'notes',
+      label: 'Notas',
+      keywords: 'escaleta ideas personajes apuntes bloc',
+      run: () => {
+        if (isOverlayOpen()) {
+          closeOverlay();
+          return;
+        }
+        openNotes(
+          notes,
+          (n) => {
+            if (n === notes) return;
+            notes = n;
+            markChanged();
+          },
+          focusEditor,
+        );
+      },
+    },
+    {
+      id: 'fullscreen',
+      label: () => (document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa'),
+      run: async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else await document.documentElement.requestFullscreen();
+        } catch {
+          notice('El navegador no permite la pantalla completa aquí.');
+        }
+      },
+    },
+    {
+      id: 'theme.toggle',
+      label: () => (document.documentElement.dataset.theme === 'dark' ? 'Tema claro' : 'Tema oscuro'),
+      keywords: 'modo oscuro claro noche',
+      run: () => prefs.set('theme', document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'),
+    },
+    {
+      id: 'typewriter.toggle',
+      label: () => (prefs.get('typewriter') ? 'Desactivar texto centrado' : 'Activar texto centrado'),
+      keywords: 'máquina de escribir centrar cursor',
+      run: () => {
+        const on = prefs.toggle('typewriter');
+        view.dispatch({ effects: typewriterCompartment.reconfigure(typewriter(on)) });
+      },
+    },
+    {
       id: 'save',
       label: 'Guardar ahora',
       hidden: true, // solo por ⌘S: evita el diálogo del navegador y fuerza el flush
@@ -384,24 +431,6 @@ export async function startSession(o: SessionOptions): Promise<void> {
       },
     },
     {
-      id: 'theme.toggle',
-      label: () => (document.documentElement.dataset.theme === 'dark' ? 'Tema claro' : 'Tema oscuro'),
-      keywords: 'modo oscuro claro noche',
-      run: () => prefs.set('theme', document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'),
-    },
-    {
-      id: 'fullscreen',
-      label: () => (document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa'),
-      run: async () => {
-        try {
-          if (document.fullscreenElement) await document.exitFullscreen();
-          else await document.documentElement.requestFullscreen();
-        } catch {
-          notice('El navegador no permite la pantalla completa aquí.');
-        }
-      },
-    },
-    {
       id: 'font.increase',
       label: 'Aumentar tamaño del texto',
       hidden: true, // solo por atajo
@@ -412,15 +441,6 @@ export async function startSession(o: SessionOptions): Promise<void> {
       label: 'Reducir tamaño del texto',
       hidden: true, // solo por atajo
       run: () => prefs.set('fontSize', Math.max(FONT_SIZE_MIN, prefs.get('fontSize') - 1)),
-    },
-    {
-      id: 'typewriter.toggle',
-      label: () => (prefs.get('typewriter') ? 'Desactivar texto centrado' : 'Activar texto centrado'),
-      keywords: 'máquina de escribir centrar cursor',
-      run: () => {
-        const on = prefs.toggle('typewriter');
-        view.dispatch({ effects: typewriterCompartment.reconfigure(typewriter(on)) });
-      },
     },
     {
       id: 'typography.toggle',
@@ -437,26 +457,6 @@ export async function startSession(o: SessionOptions): Promise<void> {
       label: () => (prefs.get('spellEnabled') ? 'Desactivar corrector' : 'Activar corrector'),
       keywords: 'ortografía',
       run: () => setSpellEnabled(!prefs.get('spellEnabled')),
-    },
-    {
-      id: 'notes',
-      label: 'Notas',
-      keywords: 'escaleta ideas personajes apuntes bloc',
-      run: () => {
-        if (isOverlayOpen()) {
-          closeOverlay();
-          return;
-        }
-        openNotes(
-          notes,
-          (n) => {
-            if (n === notes) return;
-            notes = n;
-            markChanged();
-          },
-          focusEditor,
-        );
-      },
     },
     {
       id: 'dictionary.add',
@@ -477,7 +477,7 @@ export async function startSession(o: SessionOptions): Promise<void> {
     },
     {
       id: 'dictionary.manage',
-      label: 'Gestionar diccionario personal',
+      label: 'Diccionario',
       run: () => openDictionaryManager(dictionary, reloadSpell, focusEditor),
     },
   );
