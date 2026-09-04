@@ -1,0 +1,23 @@
+src/editor/chapters.ts
+  s_11edae1775ec31::t_f05775be2eac51 1-132
+src/persistence/novels.ts
+  s_11edae1775ec31::t_6231ed6a80bb33 1-54
+tests/chapters.test.ts
+  s_11edae1775ec31::t_02e517716236b2 1-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "ce7c3b0f65e149b4cca70a340eee5f4575b0d098",
+  "prompts": {},
+  "sessions": {
+    "s_11edae1775ec31": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f946c2d4effe9UnMwuXYywNJM4",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "jfraguio <jfraguio@gmail.com>"
+    }
+  }
+}
