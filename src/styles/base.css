@@ -171,14 +171,9 @@ input:focus-visible {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--fg-dim);
-  opacity: var(--chrome-opacity);
-  transition: opacity var(--ease);
+  opacity: var(--chrome-opacity-hover);
   user-select: none;
   z-index: 5;
-}
-
-.brand:hover {
-  opacity: var(--chrome-opacity-hover);
 }
 
 /* ---------- Botón de menú ---------- */

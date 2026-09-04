@@ -23,14 +23,14 @@ describe('LiveDraft', () => {
 });
 
 describe('PersonalDictionary', () => {
-  it('añade, elimina y exporta palabras', async () => {
+  it('añade, elimina y persiste palabras', async () => {
     const d = new PersonalDictionary('es');
     await d.load();
     await d.add('Folio');
     await d.add('Zaratustra');
     expect(d.has('Folio')).toBe(true);
     await d.add('Nuevo');
-    expect(d.export()).toBe('Folio\nNuevo\nZaratustra\n');
+    expect(d.list()).toEqual(['Folio', 'Nuevo', 'Zaratustra']);
     await d.remove('Nuevo');
 
     const again = new PersonalDictionary('es');

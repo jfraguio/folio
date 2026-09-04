@@ -330,7 +330,7 @@ export async function startSession(o: SessionOptions): Promise<void> {
     },
     {
       id: 'export.txt',
-      label: 'Exportar como TXT',
+      label: 'Exportar',
       keywords: 'texto plano',
       run: async () => {
         await autosave.flush();
@@ -439,12 +439,6 @@ export async function startSession(o: SessionOptions): Promise<void> {
           },
           focusEditor,
         ),
-    },
-    {
-      id: 'dictionary.export',
-      label: 'Exportar diccionario personal',
-      when: () => dictionary.list().length > 0,
-      run: () => download(dictionary.export(), 'diccionario-personal.txt', 'text/plain'),
     },
   );
 

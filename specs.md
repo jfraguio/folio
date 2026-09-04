@@ -167,7 +167,7 @@ Solo se recalcula cuando cambia la selección o el documento; escribir dentro de
 
 No puede desactivarse: es parte de la identidad del editor.
 
-### 8.2. Texto centrado (typewriter scrolling, activado por defecto)
+### 8.2. Texto centrado (typewriter scrolling, desactivado por defecto)
 
 Mantiene la línea del cursor a una altura fija (~45 % de la ventana) mediante `EditorView.scrollIntoView` con `y: 'center'` tras cada cambio de selección producido por escritura. Se activa desde la paleta.
 
@@ -327,7 +327,7 @@ Formas de añadir una palabra, todas iniciadas por el usuario:
 - Atajo `Cmd/Ctrl+Shift+D` con el cursor sobre la palabra.
 - Paleta de comandos → «Añadir “palabra” al diccionario» (aparece como primera acción cuando el cursor está sobre una palabra marcada).
 
-Desde la paleta también se puede «Gestionar diccionario» (lista con eliminación) y «Exportar diccionario» (`.txt`, una palabra por línea).
+Desde la paleta también se puede «Gestionar diccionario» (lista con eliminación).
 
 ## 15. Modo claro
 
@@ -366,7 +366,7 @@ Valor inicial: `prefers-color-scheme`. El usuario puede fijar claro, oscuro o «
 
 ## 18. Exportación a TXT
 
-Desde la paleta: «Exportar como TXT». Genera texto plano sin sintaxis Markdown:
+Desde la paleta: «Exportar». Genera texto plano sin sintaxis Markdown:
 
 - `# Título` → línea `Título` precedida de dos líneas vacías (salvo al inicio).
 - `## Título` → línea `Título` precedida de una línea vacía.

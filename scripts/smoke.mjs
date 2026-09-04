@@ -207,7 +207,7 @@ await page.waitForSelector('.start');
 const themeAfterReload = await page.evaluate(() => document.documentElement.dataset.theme);
 check('tema oscuro se conserva tras recargar', themeAfterReload === 'dark', themeAfterReload);
 const chromeOpacity = await page.$eval('.brand', (e) => getComputedStyle(e).opacity);
-check('marca más visible en oscuro', Number(chromeOpacity) >= 0.6, chromeOpacity);
+check('marca siempre con la opacidad de hover', Number(chromeOpacity) === 1, chromeOpacity);
 await page.screenshot({ path: '/tmp/folio-dark-start.png' });
 await page.click('.start__action:has-text("Abrir")');
 await page.waitForSelector('.cm-content');
@@ -226,7 +226,8 @@ await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k'
 await page.waitForSelector('.panel__list');
 const finalItems = await page.$$eval('.panel__item .panel__label', (els) => els.map((e) => e.textContent));
 check('menú sin "Abrir otra novela"', !finalItems.includes('Abrir otra novela'));
-check('menú con "texto centrado" y "asistencia literaria" activados por defecto', finalItems.includes('Desactivar texto centrado') && finalItems.includes('Desactivar asistencia literaria'), JSON.stringify(finalItems));
+check('menú: texto centrado desactivado y asistencia literaria activada por defecto', finalItems.includes('Activar texto centrado') && finalItems.includes('Desactivar asistencia literaria'), JSON.stringify(finalItems));
+check('menú sin exportar diccionario y con "Exportar"', !finalItems.some((l) => /diccionario personal$/i.test(l) && l.startsWith('Exportar')) && finalItems.includes('Exportar'), JSON.stringify(finalItems));
 await page.keyboard.press('Escape');
 await page.waitForTimeout(2000);
 await page.reload();

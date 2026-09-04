@@ -11,7 +11,7 @@ export interface Prefs {
 const DEFAULTS: Prefs = {
   theme: 'system',
   fontSize: 21,
-  typewriter: true,
+  typewriter: false,
   spellEnabled: true,
   typographyEs: true,
 };

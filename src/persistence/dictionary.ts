@@ -34,10 +34,6 @@ export class PersonalDictionary {
     await this.persist();
   }
 
-  export(): string {
-    return this.list().join('\n') + '\n';
-  }
-
   onChange(l: (words: string[]) => void): () => void {
     this.listeners.add(l);
     return () => this.listeners.delete(l);
