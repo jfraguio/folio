@@ -1,0 +1,31 @@
+specs.md
+  s_648a5f7eb17a01::t_2d0bd2d4687183 352,363,429
+src/app/session.ts
+  s_648a5f7eb17a01::t_795b6ab276a647 316-362,480
+src/styles/overlays.css
+  s_648a5f7eb17a01::t_2cd64ab247be14 189-196,198,207
+src/ui/Dialog.ts
+  s_648a5f7eb17a01::t_71d0cb252d85c0 30
+src/ui/DictionaryManager.ts
+  s_648a5f7eb17a01::t_c7165ce058ea38 36,41
+src/ui/Notes.ts
+  s_648a5f7eb17a01::t_84727f9513dcc7 14,19
+src/ui/Palette.ts
+  s_648a5f7eb17a01::t_0ac96fcdf59b4f 35-42,44-48,61-62,166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "132c33943b6bc370ad929eaff77b958d4ca76068",
+  "prompts": {},
+  "sessions": {
+    "s_648a5f7eb17a01": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f92d7d949ffeGOMA5K6yygYW8z",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "jfraguio <jfraguio@gmail.com>"
+    }
+  }
+}
