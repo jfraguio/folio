@@ -11,7 +11,8 @@ import { Autosave } from '../persistence/autosave';
 import { LiveDraft } from '../persistence/liveDraft';
 import { resolveNovelId } from '../persistence/novels';
 import { acquireNovelLock } from '../persistence/locks';
-import { PersonalDictionary } from '../persistence/dictionary';
+import { PersonalDictionary, takeLegacyWords } from '../persistence/dictionary';
+import { joinDictionaryBlock, splitDictionaryBlock } from '../persistence/dictionaryBlock';
 import { prefs, FONT_SIZE_MAX, FONT_SIZE_MIN } from '../persistence/prefs';
 import { requestPersistentStorage } from '../persistence/db';
 import { SpellService } from '../spell/SpellService';
@@ -40,8 +41,8 @@ export async function startSession(o: SessionOptions): Promise<void> {
   let file = o.file;
   const degraded = !adapter.capabilities.directWrite;
 
-  // 1. Leer y normalizar.
-  let { text, mtime } = await adapter.read(file);
+  // 1. Leer y normalizar. `raw` es el archivo tal cual (con el bloque del diccionario, si lo hay).
+  let { text: raw, mtime } = await adapter.read(file);
 
   // 2. Identidad, almacenamiento persistente y bloqueo.
   const novelId = await resolveNovelId(file);
@@ -63,9 +64,9 @@ export async function startSession(o: SessionOptions): Promise<void> {
     }
   }
 
-  // 3. Comprobación de borrador vivo.
+  // 3. Comprobación de borrador vivo (guarda el texto completo, bloque incluido).
   const draft = await LiveDraft.read(novelId);
-  if (draft && draft.ts > mtime && draft.text !== text) {
+  if (draft && draft.ts > mtime && draft.text !== raw) {
     const recover = await new Promise<boolean>((resolve) =>
       openDialog(
         [`Hay cambios sin guardar de ${relativeTime(draft.ts)}. ¿Quieres recuperarlos?`],
@@ -75,8 +76,11 @@ export async function startSession(o: SessionOptions): Promise<void> {
         ],
       ),
     );
-    if (recover) text = draft.text;
+    if (recover) raw = draft.text;
   }
+
+  // El diccionario personal viaja al final del .md como comentario HTML; el editor solo ve la novela.
+  const { body: text, words } = splitDictionaryBlock(raw);
 
   // 4. UI base.
   root.replaceChildren();
@@ -97,8 +101,8 @@ export async function startSession(o: SessionOptions): Promise<void> {
 
   // 5. Servicios.
   const liveDraft = new LiveDraft(novelId);
-  const dictionary = new PersonalDictionary(SPELL_LANG);
-  await dictionary.load();
+  const dictionary = new PersonalDictionary();
+  dictionary.load(words);
   const spell = new SpellService();
   const spellExt = spellcheck({ service: spell, dictionary });
   const commands = new CommandRegistry();
@@ -121,15 +125,18 @@ export async function startSession(o: SessionOptions): Promise<void> {
         if (u.docChanged) scheduleWordCount(300);
         else if (u.selectionSet) scheduleWordCount(0);
         if (!u.docChanged) return;
-        const t = u.state.doc.toString();
-        liveDraft.schedule(t);
-        if (!degraded) autosave.markDirty();
-        else statusDot.set('degraded');
+        markChanged();
       }),
     ],
   });
 
-  const getText = () => view.state.doc.toString();
+  /** Texto que va al disco: la novela más el bloque del diccionario (si tiene palabras). */
+  const getText = () => joinDictionaryBlock(view.state.doc.toString(), dictionary.list());
+  const markChanged = () => {
+    liveDraft.schedule(getText());
+    if (!degraded) autosave.markDirty();
+    else statusDot.set('degraded');
+  };
   const refreshWords = () => {
     const index = getChapterIndex(view.state);
     const current = chapterAt(index, view.state.selection.main.head);
@@ -166,13 +173,23 @@ export async function startSession(o: SessionOptions): Promise<void> {
     },
   });
   if (degraded) statusDot.set('degraded');
-  else autosave.accept(mtime, text);
-  if (draft && text === draft.text) autosave.markDirty(); // el borrador recuperado debe escribirse
+  else autosave.accept(mtime, raw);
+  if (draft && raw === draft.text) autosave.markDirty(); // el borrador recuperado debe escribirse
+  dictionary.onChange(markChanged);
+
+  // Migración: las palabras que versiones anteriores guardaban en el navegador pasan a esta novela.
+  if (!degraded) {
+    const legacy = await takeLegacyWords(SPELL_LANG);
+    if (legacy.length) {
+      dictionary.load([...dictionary.list(), ...legacy]);
+      markChanged();
+      notice(`${formatNumber(legacy.length)} palabras del diccionario del navegador se han guardado en esta novela.`, 6000);
+    }
+  }
 
   // 8. Corrector.
   const loadSpell = async () => {
     try {
-      await dictionary.load();
       await spell.load();
       await spell.addWords(dictionary.list());
     } catch (e) {
@@ -188,6 +205,11 @@ export async function startSession(o: SessionOptions): Promise<void> {
     if (on && !spell.ready) void loadSpell();
   };
   const rescanSpell = () => view.plugin(spellExt.plugin)?.rescan();
+  /** Tras quitar palabras del diccionario: Hunspell no permite olvidarlas, así que se recarga. */
+  const reloadSpell = () => {
+    spell.dispose();
+    if (prefs.get('spellEnabled')) void loadSpell().then(rescanSpell);
+  };
 
   // 9. Conflicto.
   const showConflict = () => {
@@ -202,7 +224,10 @@ export async function startSession(o: SessionOptions): Promise<void> {
           quiet: true,
           onClick: async () => {
             const fresh = await adapter.read(file);
-            view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: fresh.text } });
+            const split = splitDictionaryBlock(fresh.text);
+            view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: split.body } });
+            dictionary.load(split.words);
+            reloadSpell();
             autosave.accept(fresh.mtime, fresh.text);
             notice('Se ha cargado la versión del disco.');
           },
@@ -421,7 +446,7 @@ export async function startSession(o: SessionOptions): Promise<void> {
       run: async () => {
         const w = wordAt(view, view.state.selection.main.head);
         if (!w) return;
-        await dictionary.add(w.word);
+        dictionary.add(w.word);
         await spell.addWords([w.word]);
         rescanSpell();
         notice(`«${w.word}» añadida al diccionario.`);
@@ -430,15 +455,7 @@ export async function startSession(o: SessionOptions): Promise<void> {
     {
       id: 'dictionary.manage',
       label: 'Gestionar diccionario personal',
-      run: () =>
-        openDictionaryManager(
-          dictionary,
-          () => {
-            spell.dispose();
-            void loadSpell().then(rescanSpell);
-          },
-          focusEditor,
-        ),
+      run: () => openDictionaryManager(dictionary, reloadSpell, focusEditor),
     },
   );
 

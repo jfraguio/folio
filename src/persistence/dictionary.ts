@@ -1,17 +1,16 @@
 import { getDB } from './db';
 
-/** Diccionario personal, en memoria y persistido en IndexedDB. */
+/**
+ * Diccionario personal de la novela abierta. Vive en memoria; la sesión lo serializa
+ * dentro del `.md` (ver dictionaryBlock.ts) cada vez que cambia.
+ */
 export class PersonalDictionary {
   private words = new Set<string>();
   private listeners = new Set<(words: string[]) => void>();
 
-  constructor(private readonly lang: string) {}
-
-  async load(): Promise<void> {
-    const db = await getDB();
-    const rec = await db.get('dictionary', this.lang);
-    this.words = new Set(rec?.words ?? []);
-    this.emit();
+  /** Sustituye el contenido (al abrir la novela o recargarla desde el disco). No notifica. */
+  load(words: Iterable<string>): void {
+    this.words = new Set(words);
   }
 
   has(word: string): boolean {
@@ -22,16 +21,17 @@ export class PersonalDictionary {
     return [...this.words].sort((a, b) => a.localeCompare(b, 'es'));
   }
 
-  async add(word: string): Promise<void> {
+  /** Devuelve true si el diccionario cambió. */
+  add(word: string): boolean {
     const w = word.trim();
-    if (!w) return;
+    if (!w || /\s/.test(w) || this.words.has(w)) return false;
     this.words.add(w);
-    await this.persist();
+    this.emit();
+    return true;
   }
 
-  async remove(word: string): Promise<void> {
-    this.words.delete(word);
-    await this.persist();
+  remove(word: string): void {
+    if (this.words.delete(word)) this.emit();
   }
 
   onChange(l: (words: string[]) => void): () => void {
@@ -39,14 +39,24 @@ export class PersonalDictionary {
     return () => this.listeners.delete(l);
   }
 
-  private async persist(): Promise<void> {
-    const db = await getDB();
-    await db.put('dictionary', { lang: this.lang, words: [...this.words] });
-    this.emit();
-  }
-
   private emit(): void {
-    const list = [...this.words];
+    const list = this.list();
     this.listeners.forEach((l) => l(list));
+  }
+}
+
+/**
+ * Migración: versiones anteriores guardaban el diccionario en IndexedDB, global por idioma.
+ * Devuelve esas palabras y las borra, para que la novela que se abra las adopte.
+ */
+export async function takeLegacyWords(lang: string): Promise<string[]> {
+  try {
+    const db = await getDB();
+    const rec = await db.get('dictionary', lang);
+    if (!rec || rec.words.length === 0) return [];
+    await db.delete('dictionary', lang);
+    return rec.words;
+  } catch {
+    return [];
   }
 }

@@ -13,6 +13,7 @@ export interface DraftRecord {
   text: string;
 }
 
+/** Solo para migrar: el diccionario personal vive ahora dentro del `.md` (dictionaryBlock.ts). */
 export interface DictionaryRecord {
   lang: string;
   words: string[];

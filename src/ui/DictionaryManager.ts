@@ -19,8 +19,8 @@ export function openDictionaryManager(dict: PersonalDictionary, onChange: () => 
             class: 'dict__word',
             title: 'Quitar del diccionario',
             on: {
-              click: async () => {
-                await dict.remove(w);
+              click: () => {
+                dict.remove(w);
                 onChange();
                 render();
               },

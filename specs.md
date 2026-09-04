@@ -69,7 +69,7 @@ Tras cualquiera de las tres acciones se entra **directamente en el editor**. No 
 
 ### 4.1. Formato
 
-Markdown estándar, legible como texto plano, codificación UTF-8, saltos de línea `\n`. Folio no introduce metadatos, front matter, JSON incrustado ni estructuras propietarias.
+Markdown estándar, legible como texto plano, codificación UTF-8, saltos de línea `\n`. Folio no introduce metadatos, front matter, JSON incrustado ni estructuras propietarias, con una única excepción: el diccionario personal de la novela, que viaja al final del archivo como comentario HTML (§14). Al ser un comentario, cualquier visor Markdown lo ignora y el texto sigue siendo legible tal cual.
 
 ```markdown
 # Capítulo 1
@@ -320,7 +320,30 @@ Se ignoran: tokens con dígitos, palabras de una sola letra, y las presentes en 
 
 ## 14. Diccionario personal
 
-Lista de palabras aceptadas (`Set<string>`, case-sensitive) almacenada en IndexedDB (store `dictionary`). Se aplica en el hilo principal antes de consultar al worker.
+Lista de palabras aceptadas (`Set<string>`, case-sensitive) **propia de cada novela**: se guarda dentro del propio `.md`, de modo que al abrir el archivo en otro navegador o dispositivo el diccionario viaja con él. Se aplica en el hilo principal antes de consultar al worker.
+
+### 14.1. Formato en el archivo
+
+Un comentario HTML al final del documento, mantenido por Folio (`src/persistence/dictionaryBlock.ts`):
+
+```markdown
+<!-- folio:diccionario
+Palabras que el corrector ortográfico de Folio acepta en esta novela, una por línea.
+Este bloque lo mantiene Folio; no forma parte del texto y no se incluye al exportar.
+
+Aldebarán
+Kaelith
+-->
+```
+
+- Se separa al leer y se vuelve a unir al escribir: **el editor nunca lo ve**, así que no aparece como texto, no cuenta como capítulo ni suma palabras. La exportación a TXT lo descarta (los nodos HTML no se exportan). «Descargar el .md» sí lo incluye, porque es el archivo completo.
+- Dentro del bloque, una línea es una palabra si no contiene espacios; las líneas de descripción y las vacías se ignoran.
+- Si el diccionario está vacío no se escribe ningún bloque: el archivo queda exactamente igual que antes.
+- Si el bloque no está al final o está mal cerrado, se trata como texto normal (aparece en el editor) y no se pierde nada.
+- Añadir o quitar una palabra es un cambio del documento: pasa por el autosave y el borrador vivo como cualquier edición.
+- Migración: las palabras que versiones anteriores guardaban en IndexedDB se trasladan a la primera novela que se abra con escritura directa y se borran del navegador (se avisa con un mensaje).
+
+### 14.2. Uso
 
 Formas de añadir una palabra, todas iniciadas por el usuario:
 
@@ -416,7 +439,7 @@ Se cuentan las secuencias que cumplen `/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/g
 
 ## 22. Persistencia de preferencias
 
-El archivo `.md` permanece limpio. Todo lo demás vive en el navegador.
+El archivo `.md` permanece limpio, salvo el bloque del diccionario personal (§14.1). Todo lo demás vive en el navegador.
 
 ### `localStorage` (síncrono, necesario antes del primer render)
 
@@ -434,7 +457,7 @@ El archivo `.md` permanece limpio. Todo lo demás vive en el navegador.
 |---|---|---|
 | `novels` | `id` | `{ id, handle, name, lastOpened }` |
 | `drafts` | `novelId` | `{ novelId, ts, text }` |
-| `dictionary` | `lang` (siempre `es`) | `{ lang, words: string[] }` |
+| `dictionary` | `lang` (siempre `es`) | `{ lang, words: string[] }` — heredado; solo se lee para migrar al `.md` (§14.1) |
 
 Acceso mediante la librería `idb` (wrapper de promesas, ~1 KB).
 
@@ -482,7 +505,8 @@ src/
     db.ts                 apertura y migraciones IndexedDB
     autosave.ts           máquina de estados
     liveDraft.ts
-    dictionary.ts
+    dictionary.ts         diccionario personal en memoria + migración desde IndexedDB
+    dictionaryBlock.ts    bloque <!-- folio:diccionario --> al final del .md
     prefs.ts
     locks.ts              navigator.locks + BroadcastChannel
   ui/
