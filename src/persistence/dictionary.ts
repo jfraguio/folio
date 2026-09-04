@@ -2,7 +2,7 @@ import { getDB } from './db';
 
 /**
  * Diccionario personal de la novela abierta. Vive en memoria; la sesión lo serializa
- * dentro del `.md` (ver dictionaryBlock.ts) cada vez que cambia.
+ * dentro del `.md` (ver folioBlocks.ts) cada vez que cambia.
  */
 export class PersonalDictionary {
   private words = new Set<string>();

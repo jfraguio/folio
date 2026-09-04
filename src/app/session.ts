@@ -12,7 +12,7 @@ import { LiveDraft } from '../persistence/liveDraft';
 import { resolveNovelId } from '../persistence/novels';
 import { acquireNovelLock } from '../persistence/locks';
 import { PersonalDictionary, takeLegacyWords } from '../persistence/dictionary';
-import { joinDictionaryBlock, splitDictionaryBlock } from '../persistence/dictionaryBlock';
+import { joinDocument, splitDocument } from '../persistence/folioBlocks';
 import { prefs, FONT_SIZE_MAX, FONT_SIZE_MIN } from '../persistence/prefs';
 import { requestPersistentStorage } from '../persistence/db';
 import { SpellService } from '../spell/SpellService';
@@ -26,6 +26,7 @@ import { notice } from '../ui/Notice';
 import { openPalette, closeOverlay, isOverlayOpen } from '../ui/Palette';
 import { openDialog } from '../ui/Dialog';
 import { openDictionaryManager } from '../ui/DictionaryManager';
+import { openNotes } from '../ui/Notes';
 import { formatNumber } from '../text/words';
 import { el, relativeTime } from '../ui/el';
 
@@ -79,8 +80,9 @@ export async function startSession(o: SessionOptions): Promise<void> {
     if (recover) raw = draft.text;
   }
 
-  // El diccionario personal viaja al final del .md como comentario HTML; el editor solo ve la novela.
-  const { body: text, words } = splitDictionaryBlock(raw);
+  // Notas y diccionario viajan al final del .md como comentarios HTML; el editor solo ve la novela.
+  const { body: text, notes: initialNotes, words } = splitDocument(raw);
+  let notes = initialNotes;
 
   // 4. UI base.
   root.replaceChildren();
@@ -130,8 +132,8 @@ export async function startSession(o: SessionOptions): Promise<void> {
     ],
   });
 
-  /** Texto que va al disco: la novela más el bloque del diccionario (si tiene palabras). */
-  const getText = () => joinDictionaryBlock(view.state.doc.toString(), dictionary.list());
+  /** Texto que va al disco: la novela más los bloques de notas y diccionario (si tienen contenido). */
+  const getText = () => joinDocument({ body: view.state.doc.toString(), notes, words: dictionary.list() });
   const markChanged = () => {
     liveDraft.schedule(getText());
     if (!degraded) autosave.markDirty();
@@ -224,8 +226,9 @@ export async function startSession(o: SessionOptions): Promise<void> {
           quiet: true,
           onClick: async () => {
             const fresh = await adapter.read(file);
-            const split = splitDictionaryBlock(fresh.text);
+            const split = splitDocument(fresh.text);
             view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: split.body } });
+            notes = split.notes;
             dictionary.load(split.words);
             reloadSpell();
             autosave.accept(fresh.mtime, fresh.text);
@@ -434,6 +437,26 @@ export async function startSession(o: SessionOptions): Promise<void> {
       label: () => (prefs.get('spellEnabled') ? 'Desactivar corrector' : 'Activar corrector'),
       keywords: 'ortografía',
       run: () => setSpellEnabled(!prefs.get('spellEnabled')),
+    },
+    {
+      id: 'notes',
+      label: 'Notas',
+      keywords: 'escaleta ideas personajes apuntes bloc',
+      run: () => {
+        if (isOverlayOpen()) {
+          closeOverlay();
+          return;
+        }
+        openNotes(
+          notes,
+          (n) => {
+            if (n === notes) return;
+            notes = n;
+            markChanged();
+          },
+          focusEditor,
+        );
+      },
     },
     {
       id: 'dictionary.add',

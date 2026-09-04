@@ -69,7 +69,7 @@ Tras cualquiera de las tres acciones se entra **directamente en el editor**. No 
 
 ### 4.1. Formato
 
-Markdown estándar, legible como texto plano, codificación UTF-8, saltos de línea `\n`. Folio no introduce metadatos, front matter, JSON incrustado ni estructuras propietarias, con una única excepción: el diccionario personal de la novela, que viaja al final del archivo como comentario HTML (§14). Al ser un comentario, cualquier visor Markdown lo ignora y el texto sigue siendo legible tal cual.
+Markdown estándar, legible como texto plano, codificación UTF-8, saltos de línea `\n`. Folio no introduce metadatos, front matter, JSON incrustado ni estructuras propietarias, con una única excepción: las notas y el diccionario personal de la novela, que viajan al final del archivo como comentarios HTML (§14). Al ser comentarios, cualquier visor Markdown los ignora y el texto sigue siendo legible tal cual.
 
 ```markdown
 # Capítulo 1
@@ -318,15 +318,18 @@ Cuando el corrector propio está activo, el `contenteditable` lleva `spellcheck=
 
 Se ignoran: tokens con dígitos, palabras de una sola letra, y las presentes en el diccionario personal.
 
-## 14. Diccionario personal
+## 14. Bloques de Folio dentro del `.md`: notas y diccionario
 
-Lista de palabras aceptadas (`Set<string>`, case-sensitive) **propia de cada novela**: se guarda dentro del propio `.md`, de modo que al abrir el archivo en otro navegador o dispositivo el diccionario viaja con él. Se aplica en el hilo principal antes de consultar al worker.
-
-### 14.1. Formato en el archivo
-
-Un comentario HTML al final del documento, mantenido por Folio (`src/persistence/dictionaryBlock.ts`):
+Dos contenidos propios de cada novela viajan dentro del propio archivo, como comentarios HTML al final del documento (`src/persistence/folioBlocks.ts`), en este orden: **notas** y después **diccionario personal**. Así, al abrir el `.md` en otro navegador o dispositivo, ambos viajan con él.
 
 ```markdown
+<!-- folio:notas
+Notas de trabajo de Folio para esta novela (escaleta, ideas, personajes…).
+Este bloque lo mantiene Folio; no forma parte del texto y no se incluye al exportar.
+
+Texto libre de las notas.
+-->
+
 <!-- folio:diccionario
 Palabras que el corrector ortográfico de Folio acepta en esta novela, una por línea.
 Este bloque lo mantiene Folio; no forma parte del texto y no se incluye al exportar.
@@ -336,14 +339,21 @@ Kaelith
 -->
 ```
 
-- Se separa al leer y se vuelve a unir al escribir: **el editor nunca lo ve**, así que no aparece como texto, no cuenta como capítulo ni suma palabras. La exportación a TXT lo descarta (los nodos HTML no se exportan). «Descargar el .md» sí lo incluye, porque es el archivo completo.
-- Dentro del bloque, una línea es una palabra si no contiene espacios; las líneas de descripción y las vacías se ignoran.
-- Si el diccionario está vacío no se escribe ningún bloque: el archivo queda exactamente igual que antes.
-- Si el bloque no está al final o está mal cerrado, se trata como texto normal (aparece en el editor) y no se pierde nada.
-- Añadir o quitar una palabra es un cambio del documento: pasa por el autosave y el borrador vivo como cualquier edición.
-- Migración: las palabras que versiones anteriores guardaban en IndexedDB se trasladan a la primera novela que se abra con escritura directa y se borran del navegador (se avisa con un mensaje).
+Reglas comunes:
 
-### 14.2. Uso
+- Se separan al leer y se vuelven a unir al escribir: **el editor nunca los ve**, así que no aparecen como texto, no cuentan como capítulo ni suman palabras. La exportación a TXT los descarta (los nodos HTML no se exportan). «Descargar el .md» sí los incluye, porque es el archivo completo.
+- Cada bloque es: marcador, líneas de descripción, una línea vacía y el contenido. Un bloque nunca contiene `-->` en su interior (en las notas se escapa como `--\>`), de modo que un bloque no puede tragarse a otro.
+- Sin contenido no se escribe el bloque: una novela sin notas ni palabras queda exactamente igual que antes.
+- Si un bloque no está al final (en su orden) o está mal cerrado, se trata como texto normal (aparece en el editor) y no se pierde nada.
+- Editar notas o diccionario es un cambio del documento: pasa por el autosave y el borrador vivo como cualquier edición.
+
+### 14.1. Notas
+
+Bloc de texto libre por novela (escaleta, ideas, fichas de personajes…). Se abre desde la paleta con «Notas»: un panel con un `textarea` a la misma fuente y tamaño que el resto de paneles, y un botón «Cerrar» (también `Esc`). Cada pulsación se refleja en el documento; no hay botón de guardar.
+
+### 14.2. Diccionario personal
+
+Lista de palabras aceptadas (`Set<string>`, case-sensitive) propia de cada novela. Se aplica en el hilo principal antes de consultar al worker. Dentro del bloque, una línea es una palabra si no contiene espacios; el resto se ignora.
 
 Formas de añadir una palabra, todas iniciadas por el usuario:
 
@@ -351,6 +361,8 @@ Formas de añadir una palabra, todas iniciadas por el usuario:
 - Paleta de comandos → «Añadir “palabra” al diccionario» (aparece como primera acción cuando el cursor está sobre una palabra marcada).
 
 Desde la paleta también se puede «Gestionar diccionario» (lista con eliminación).
+
+Migración: las palabras que versiones anteriores guardaban en IndexedDB se trasladan a la primera novela que se abra con escritura directa y se borran del navegador (se avisa con un mensaje).
 
 ## 15. Modo claro
 
@@ -414,7 +426,7 @@ Toda la funcionalidad oculta se alcanza desde **un único punto**: la paleta de 
 | Guardar ahora (fuerza `flush`) | `Cmd/Ctrl+S` |
 | Cerrar overlay | `Esc` |
 
-Acciones solo en paleta: exportar TXT, activar/desactivar corrector, texto centrado, asistencia literaria, gestionar diccionario. Para cambiar de novela se vuelve a la pantalla inicial recargando la página; no hay comando. Solo por atajo (no aparecen en la paleta): guardar ahora, tamaño del texto.
+Acciones solo en paleta: exportar TXT, notas, activar/desactivar corrector, texto centrado, asistencia literaria, gestionar diccionario. Para cambiar de novela se vuelve a la pantalla inicial recargando la página; no hay comando. Solo por atajo (no aparecen en la paleta): guardar ahora, tamaño del texto.
 
 `Cmd/Ctrl+S` existe porque el reflejo del usuario es pulsarlo; no debe abrir el diálogo del navegador.
 
@@ -439,7 +451,7 @@ Se cuentan las secuencias que cumplen `/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/g
 
 ## 22. Persistencia de preferencias
 
-El archivo `.md` permanece limpio, salvo el bloque del diccionario personal (§14.1). Todo lo demás vive en el navegador.
+El archivo `.md` permanece limpio, salvo los bloques de notas y diccionario (§14). Todo lo demás vive en el navegador.
 
 ### `localStorage` (síncrono, necesario antes del primer render)
 
@@ -457,7 +469,7 @@ El archivo `.md` permanece limpio, salvo el bloque del diccionario personal (§1
 |---|---|---|
 | `novels` | `id` | `{ id, handle, name, lastOpened }` |
 | `drafts` | `novelId` | `{ novelId, ts, text }` |
-| `dictionary` | `lang` (siempre `es`) | `{ lang, words: string[] }` — heredado; solo se lee para migrar al `.md` (§14.1) |
+| `dictionary` | `lang` (siempre `es`) | `{ lang, words: string[] }` — heredado; solo se lee para migrar al `.md` (§14.2) |
 
 Acceso mediante la librería `idb` (wrapper de promesas, ~1 KB).
 
@@ -506,7 +518,7 @@ src/
     autosave.ts           máquina de estados
     liveDraft.ts
     dictionary.ts         diccionario personal en memoria + migración desde IndexedDB
-    dictionaryBlock.ts    bloque <!-- folio:diccionario --> al final del .md
+    folioBlocks.ts        bloques <!-- folio:notas --> y <!-- folio:diccionario --> al final del .md
     prefs.ts
     locks.ts              navigator.locks + BroadcastChannel
   ui/
@@ -516,6 +528,8 @@ src/
     ConflictDialog.ts
     StatusDot.ts
     Notice.ts             mensajes de una línea, autodescartables
+    DictionaryManager.ts
+    Notes.ts              bloc de notas de la novela
   export/
     toTxt.ts
   workers/

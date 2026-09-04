@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { getDB, resetDBForTests } from '../src/persistence/db';
 import { LiveDraft } from '../src/persistence/liveDraft';
 import { PersonalDictionary, takeLegacyWords } from '../src/persistence/dictionary';
-import { joinDictionaryBlock, splitDictionaryBlock } from '../src/persistence/dictionaryBlock';
+import { joinDocument, splitDocument } from '../src/persistence/folioBlocks';
 import { markdownToTxt } from '../src/export/toTxt';
 
 beforeEach(() => {
@@ -48,43 +48,65 @@ describe('PersonalDictionary', () => {
   });
 });
 
-describe('bloque del diccionario en el .md', () => {
+describe('bloques de Folio en el .md (notas y diccionario)', () => {
   const novel = '# Capítulo 1\n\nKaelith miró a Aldebarán.\n';
+  const doc = (body: string, notes = '', words: string[] = []) => ({ body, notes, words });
 
-  it('sin palabras el archivo no cambia', () => {
-    expect(joinDictionaryBlock(novel, [])).toBe(novel);
-    expect(splitDictionaryBlock(novel)).toEqual({ body: novel, words: [] });
+  it('sin notas ni palabras el archivo no cambia', () => {
+    expect(joinDocument(doc(novel))).toBe(novel);
+    expect(joinDocument(doc(novel, '   \n'))).toBe(novel);
+    expect(splitDocument(novel)).toEqual(doc(novel));
   });
 
-  it('serializa como comentario HTML al final y recupera texto y palabras', () => {
-    const md = joinDictionaryBlock(novel, ['Aldebarán', 'Kaelith']);
+  it('serializa el diccionario como comentario HTML al final y lo recupera', () => {
+    const md = joinDocument(doc(novel, '', ['Aldebarán', 'Kaelith']));
     expect(md.startsWith(novel + '\n<!-- folio:diccionario\n')).toBe(true);
-    expect(md.endsWith('\nAldebarán\nKaelith\n-->\n')).toBe(true);
-    expect(splitDictionaryBlock(md)).toEqual({ body: novel, words: ['Aldebarán', 'Kaelith'] });
+    expect(md.endsWith('\n\nAldebarán\nKaelith\n-->\n')).toBe(true);
+    expect(splitDocument(md)).toEqual(doc(novel, '', ['Aldebarán', 'Kaelith']));
+  });
+
+  it('serializa las notas antes del diccionario y recupera ambos', () => {
+    const notes = 'Escaleta\n\n1. Llegada\n2. Huida\n';
+    const md = joinDocument(doc(novel, notes, ['Kaelith']));
+    expect(md.indexOf('<!-- folio:notas')).toBeLessThan(md.indexOf('<!-- folio:diccionario'));
+    expect(splitDocument(md)).toEqual(doc(novel, notes, ['Kaelith']));
+    // solo notas
+    expect(splitDocument(joinDocument(doc(novel, notes)))).toEqual(doc(novel, notes));
+  });
+
+  it('las notas pueden contener "-->" sin romper el comentario', () => {
+    const notes = 'a --> b';
+    const md = joinDocument(doc(novel, notes));
+    expect(md.indexOf('-->')).toBe(md.lastIndexOf('-->'));
+    expect(splitDocument(md).notes).toBe(notes);
+    expect(markdownToTxt(md)).toBe('Capítulo 1\n\nKaelith miró a Aldebarán.\n');
   });
 
   it('el texto sin salto final se separa igual y el resultado es estable', () => {
-    const md = joinDictionaryBlock('Texto', ['a']);
-    const once = splitDictionaryBlock(md);
-    expect(once).toEqual({ body: 'Texto\n', words: ['a'] });
-    expect(joinDictionaryBlock(once.body, once.words)).toBe(md);
-    expect(splitDictionaryBlock(joinDictionaryBlock('', ['a']))).toEqual({ body: '', words: ['a'] });
+    const md = joinDocument(doc('Texto', 'n', ['a']));
+    const once = splitDocument(md);
+    expect(once).toEqual(doc('Texto\n', 'n', ['a']));
+    expect(joinDocument(once)).toBe(md);
+    expect(splitDocument(joinDocument(doc('', 'n', ['a'])))).toEqual(doc('', 'n', ['a']));
   });
 
-  it('ignora la descripción, líneas vacías y espacios; tolera CRLF ya normalizado', () => {
+  it('en el diccionario ignora la descripción, líneas vacías y espacios', () => {
     const md = 'Hola\n\n<!-- folio:diccionario\nEsto es una descripción con espacios.\n\n  Uno  \n\nDos\n-->\n';
-    expect(splitDictionaryBlock(md)).toEqual({ body: 'Hola\n', words: ['Uno', 'Dos'] });
+    expect(splitDocument(md)).toEqual(doc('Hola\n', '', ['Uno', 'Dos']));
   });
 
   it('un bloque que no está al final o no está cerrado se trata como texto normal', () => {
     const mid = '<!-- folio:diccionario\nUno\n-->\n\nMás texto.\n';
-    expect(splitDictionaryBlock(mid)).toEqual({ body: mid, words: [] });
-    const open = 'Hola\n\n<!-- folio:diccionario\nUno\n';
-    expect(splitDictionaryBlock(open)).toEqual({ body: open, words: [] });
+    expect(splitDocument(mid)).toEqual(doc(mid));
+    const open = 'Hola\n\n<!-- folio:notas\n\nUno\n';
+    expect(splitDocument(open)).toEqual(doc(open));
+    // notas después del diccionario: orden incorrecto, las notas quedan como texto
+    const swapped = joinDocument(doc(joinDocument(doc('Hola', '', ['a'])), 'n'));
+    expect(splitDocument(swapped).words).toEqual([]);
   });
 
-  it('la exportación a TXT no incluye el bloque', () => {
-    const md = joinDictionaryBlock(novel, ['Aldebarán', 'Kaelith']);
+  it('la exportación a TXT no incluye ningún bloque', () => {
+    const md = joinDocument(doc(novel, 'Notas secretas', ['Aldebarán', 'Kaelith']));
     expect(markdownToTxt(md)).toBe('Capítulo 1\n\nKaelith miró a Aldebarán.\n');
   });
 });
