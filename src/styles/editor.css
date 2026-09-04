@@ -1,0 +1,107 @@
+.editor-root {
+  height: 100%;
+  overflow: hidden;
+}
+
+.cm-editor {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+}
+
+.cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-editor .cm-scroller {
+  font-family: inherit;
+  line-height: inherit;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.cm-editor .cm-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.cm-editor .cm-content {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 22vh 1.5rem 60vh;
+  caret-color: var(--fg);
+  color: var(--fg-dim);
+  transition: color var(--ease);
+}
+
+/* Sin focus mode todo el texto lleva el color principal. */
+.cm-editor:not(.cm-focus-mode) .cm-content,
+.cm-editor.cm-focus-mode .cm-active-para,
+.cm-editor:not(.cm-focused) .cm-content {
+  color: var(--fg);
+}
+
+.cm-editor .cm-line {
+  padding: 0;
+  transition: color var(--ease);
+}
+
+.cm-editor .cm-cursor, .cm-editor .cm-dropCursor {
+  border-left: 2px solid var(--fg);
+}
+
+.cm-editor .cm-selectionBackground,
+.cm-editor.cm-focused .cm-selectionBackground,
+.cm-editor .cm-content ::selection {
+  background: var(--sel) !important;
+}
+
+/* ---------- Markdown estilizado ---------- */
+
+.cm-md-heading1 {
+  font-weight: 700;
+  font-size: 1.15em;
+}
+
+.cm-md-heading2 {
+  font-weight: 700;
+}
+
+.cm-md-heading3 {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.cm-md-mark {
+  color: var(--fg-faint);
+  font-weight: 400;
+}
+
+.cm-md-emphasis {
+  font-style: italic;
+}
+
+.cm-md-strong {
+  font-weight: 700;
+}
+
+.cm-md-hr {
+  color: var(--fg-faint);
+  text-align: center;
+  letter-spacing: 0.6em;
+}
+
+.cm-md-heading-line {
+  padding-top: 1.6em;
+}
+
+/* ---------- Ortografía ---------- */
+
+.cm-misspelled {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--err);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}

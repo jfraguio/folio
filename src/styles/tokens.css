@@ -1,0 +1,69 @@
+@font-face {
+  font-family: 'iA Writer Quattro';
+  src: url('/fonts/iAWriterQuattroS-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'iA Writer Quattro';
+  src: url('/fonts/iAWriterQuattroS-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'iA Writer Quattro';
+  src: url('/fonts/iAWriterQuattroS-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'iA Writer Quattro';
+  src: url('/fonts/iAWriterQuattroS-BoldItalic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --bg: #f5f4f0;
+  --fg: #2a2a2a;
+  --fg-dim: #9c9a94;
+  --fg-faint: #c9c7c1;
+  --err: #c97a7a;
+  --sel: rgba(42, 42, 42, 0.12);
+  --overlay-bg: rgba(245, 244, 240, 0.92);
+  --panel-bg: #fbfaf7;
+  --panel-border: #e3e1db;
+  /* Opacidad de los elementos de las esquinas (marca, menú, contador). */
+  --chrome-opacity: 0.35;
+  --chrome-opacity-hover: 0.85;
+
+  --font: 'iA Writer Quattro', 'IBM Plex Sans', system-ui, sans-serif;
+  --font-size: 21px;
+  --line-height: 1.65;
+  --measure: 38rem;
+  --ease: 120ms ease;
+}
+
+:root[data-theme='dark'] {
+  --bg: #111111;
+  --fg: #d6d3cc;
+  --fg-dim: #66645f;
+  --fg-faint: #3a3936;
+  --err: #a86b6b;
+  --sel: rgba(214, 211, 204, 0.14);
+  --overlay-bg: rgba(17, 17, 17, 0.92);
+  --panel-bg: #181817;
+  --panel-border: #2a2927;
+  --chrome-opacity: 0.85;
+  --chrome-opacity-hover: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ease: 0s;
+  }
+}

@@ -1,0 +1,185 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+  background: var(--overlay-bg);
+  z-index: 10;
+  animation: overlay-in 120ms ease;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay {
+    animation: none;
+  }
+}
+
+.panel {
+  width: min(34rem, 92vw);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+  font-size: 0.9rem;
+  overflow: hidden;
+}
+
+.panel__input {
+  width: 100%;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--fg);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--panel-border);
+  padding: 0.85rem 1rem;
+  outline: none;
+}
+
+.panel__input::placeholder {
+  color: var(--fg-dim);
+}
+
+.panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  outline: none;
+}
+
+.panel__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  color: var(--fg);
+}
+
+.panel__item--nested {
+  padding-left: 2rem;
+  color: var(--fg-dim);
+}
+
+.panel__item--active {
+  background: var(--sel);
+}
+
+.panel__item--current .panel__label {
+  font-weight: 700;
+}
+
+.panel__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel__meta {
+  flex: none;
+  font-size: 0.72rem;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel__empty {
+  padding: 1rem;
+  color: var(--fg-dim);
+  text-align: center;
+}
+
+.panel__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--panel-border);
+  font-size: 0.72rem;
+  color: var(--fg-dim);
+}
+
+.panel__body {
+  padding: 1rem;
+  color: var(--fg);
+  line-height: 1.55;
+}
+
+.panel__body p {
+  margin: 0 0 0.8rem;
+}
+
+.panel__body p:last-child {
+  margin-bottom: 0;
+}
+
+.panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+.btn {
+  font-size: 0.85rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 5px;
+  border: 1px solid var(--panel-border);
+  color: var(--fg);
+  transition: background-color var(--ease);
+}
+
+.btn:hover {
+  background: var(--sel);
+}
+
+.btn--primary {
+  border-color: var(--fg);
+}
+
+.btn--quiet {
+  border-color: transparent;
+  color: var(--fg-dim);
+}
+
+/* ---------- Gestión del diccionario ---------- */
+
+.dict {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.8rem 1rem;
+  overflow-y: auto;
+}
+
+.dict__word {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--fg);
+}
+
+.dict__word:hover {
+  text-decoration: line-through;
+  color: var(--err);
+}

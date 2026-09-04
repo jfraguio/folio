@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Folio</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <script>
+      // Aplica el tema antes del primer render para evitar parpadeo.
+      (function () {
+        try {
+          var t = localStorage.getItem('folio.theme') || 'system';
+          var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          var fs = localStorage.getItem('folio.fontSize');
+          if (fs) document.documentElement.style.setProperty('--font-size', fs + 'px');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
