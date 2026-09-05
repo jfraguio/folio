@@ -81,8 +81,7 @@ export async function startSession(o: SessionOptions): Promise<void> {
   }
 
   // Notas y diccionario viajan al final del .md como comentarios HTML; el editor solo ve la novela.
-  const { body: text, notes: initialNotes, words } = splitDocument(raw);
-  let notes = initialNotes;
+  const { body: text, notes, words } = splitDocument(raw);
 
   // 4. UI base.
   root.replaceChildren();
@@ -228,7 +227,7 @@ export async function startSession(o: SessionOptions): Promise<void> {
             const fresh = await adapter.read(file);
             const split = splitDocument(fresh.text);
             view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: split.body } });
-            notes = split.notes;
+            notes.splice(0, notes.length, ...split.notes);
             dictionary.load(split.words);
             reloadSpell();
             autosave.accept(fresh.mtime, fresh.text);
@@ -324,9 +323,8 @@ export async function startSession(o: SessionOptions): Promise<void> {
         }
         openNotes(
           notes,
-          (n) => {
-            if (n === notes) return;
-            notes = n;
+          (i, n) => {
+            notes[i] = n;
             markChanged();
           },
           focusEditor,

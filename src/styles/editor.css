@@ -100,8 +100,5 @@
 /* ---------- Ortografía ---------- */
 
 .cm-misspelled {
-  text-decoration: underline dotted;
-  text-decoration-color: var(--err);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
+  color: var(--misspell);
 }

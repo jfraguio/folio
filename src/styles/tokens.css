@@ -33,6 +33,8 @@
   --fg-dim: #9c9a94;
   --fg-faint: #c9c7c1;
   --err: #c97a7a;
+  /* Palabras que el corrector no reconoce: rojo apagado, legible sobre el fondo. */
+  --misspell: #a8534e;
   --sel: rgba(42, 42, 42, 0.12);
   --overlay-bg: rgba(245, 244, 240, 0.92);
   --panel-bg: #fbfaf7;
@@ -54,6 +56,7 @@
   --fg-dim: #66645f;
   --fg-faint: #3a3936;
   --err: #a86b6b;
+  --misspell: #c4837c;
   --sel: rgba(214, 211, 204, 0.14);
   --overlay-bg: rgba(17, 17, 17, 0.92);
   --panel-bg: #181817;

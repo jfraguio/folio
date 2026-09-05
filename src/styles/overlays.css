@@ -187,15 +187,46 @@
 /* ---------- Notas ---------- */
 
 .overlay--tall {
-  padding-top: 6vh;
+  padding-top: 4vh;
 }
 
 .panel--tall {
-  max-height: 88vh;
+  max-height: 92vh;
 }
 
 .panel--notes {
-  height: 88vh;
+  width: min(80rem, 94vw);
+  height: 92vh;
+}
+
+.notes__header {
+  justify-content: flex-start;
+  gap: 1.2rem;
+}
+
+.notes__tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.notes__tab {
+  font-size: 0.72rem;
+  min-width: 1.7rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--fg-dim);
+  transition: background-color var(--ease), color var(--ease);
+}
+
+.notes__tab:hover {
+  color: var(--fg);
+}
+
+.notes__tab--active {
+  color: var(--fg);
+  border-color: var(--panel-border);
+  background: var(--sel);
 }
 
 .notes__text {

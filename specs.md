@@ -293,12 +293,11 @@ Activado por defecto. **Solo señal visual, nunca sugerencias**: sin pop-ups, li
 
 ### 13.1. Marca visual
 
+La palabra se tiñe de un rojo apagado, sin subrayado:
+
 ```css
 .cm-misspelled {
-  text-decoration: underline dotted;
-  text-decoration-color: var(--err);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
+  color: var(--misspell); /* #a8534e claro · #c4837c oscuro */
 }
 ```
 
@@ -327,7 +326,10 @@ Dos contenidos propios de cada novela viajan dentro del propio archivo, como com
 Notas de trabajo de Folio para esta novela (escaleta, ideas, personajes…).
 Este bloque lo mantiene Folio; no forma parte del texto y no se incluye al exportar.
 
-Texto libre de las notas.
+[folio:nota 1]
+Texto libre del primer espacio de notas.
+[folio:nota 3]
+Tercer espacio (los vacíos no se escriben).
 -->
 
 <!-- folio:diccionario
@@ -349,7 +351,7 @@ Reglas comunes:
 
 ### 14.1. Notas
 
-Bloc de texto libre por novela (escaleta, ideas, fichas de personajes…). Se abre desde la paleta con «Notas»: un panel alto (casi toda la ventana, como el del diccionario) con un `textarea` en la fuente de la interfaz a tamaño reducido, y un botón «Cerrar» (también `Esc`). Cada pulsación se refleja en el documento; no hay botón de guardar.
+Tres espacios de texto libre por novela (escaleta, ideas, fichas de personajes…), en tres pestañas dentro del mismo bloque (cada pestaña muestra como título la primera palabra de su nota, o su número si está vacía), separados por líneas `[folio:nota N]`; los espacios vacíos no se escriben y un bloque sin marcadores (formato antiguo o editado a mano) se carga entero en el primero. Se abre desde la paleta con «Notas»: un panel que ocupa casi toda la ventana, con la cabecera «Notas» y las pestañas, un `textarea` sin placeholder en la fuente de la interfaz a tamaño reducido, y un botón «Cerrar» (también `Esc`). Cada pulsación se refleja en el documento; no hay botón de guardar. Se recuerda la última pestaña abierta durante la sesión.
 
 ### 14.2. Diccionario personal
 

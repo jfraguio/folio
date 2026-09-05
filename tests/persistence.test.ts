@@ -5,6 +5,7 @@ import { LiveDraft } from '../src/persistence/liveDraft';
 import { PersonalDictionary, takeLegacyWords } from '../src/persistence/dictionary';
 import { joinDocument, splitDocument } from '../src/persistence/folioBlocks';
 import { markdownToTxt } from '../src/export/toTxt';
+import { tabTitle } from '../src/ui/Notes';
 
 beforeEach(() => {
   // Base de datos limpia por test.
@@ -50,11 +51,16 @@ describe('PersonalDictionary', () => {
 
 describe('bloques de Folio en el .md (notas y diccionario)', () => {
   const novel = '# Capítulo 1\n\nKaelith miró a Aldebarán.\n';
-  const doc = (body: string, notes = '', words: string[] = []) => ({ body, notes, words });
+  const tabs = (a = '', b = '', c = '') => [a, b, c];
+  const doc = (body: string, notes: string | string[] = '', words: string[] = []) => ({
+    body,
+    notes: typeof notes === 'string' ? tabs(notes) : notes,
+    words,
+  });
 
   it('sin notas ni palabras el archivo no cambia', () => {
     expect(joinDocument(doc(novel))).toBe(novel);
-    expect(joinDocument(doc(novel, '   \n'))).toBe(novel);
+    expect(joinDocument(doc(novel, tabs('   \n', '', '\n')))).toBe(novel);
     expect(splitDocument(novel)).toEqual(doc(novel));
   });
 
@@ -74,11 +80,21 @@ describe('bloques de Folio en el .md (notas y diccionario)', () => {
     expect(splitDocument(joinDocument(doc(novel, notes)))).toEqual(doc(novel, notes));
   });
 
+  it('tres espacios de notas dentro del mismo bloque; los vacíos no se escriben', () => {
+    const md = joinDocument(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos')));
+    expect(md).toContain('\n\n[folio:nota 1]\nUno\n\n[folio:nota 3]\nTres\n\ncon párrafos\n-->');
+    expect(md).not.toContain('[folio:nota 2]');
+    expect(splitDocument(md)).toEqual(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos')));
+    // notas antiguas sin marcador de espacio: todo al primero
+    const legacy = 'Hola\n\n<!-- folio:notas\nd\n\nTexto suelto\n-->\n';
+    expect(splitDocument(legacy).notes).toEqual(tabs('Texto suelto'));
+  });
+
   it('las notas pueden contener "-->" sin romper el comentario', () => {
     const notes = 'a --> b';
     const md = joinDocument(doc(novel, notes));
     expect(md.indexOf('-->')).toBe(md.lastIndexOf('-->'));
-    expect(splitDocument(md).notes).toBe(notes);
+    expect(splitDocument(md).notes).toEqual(tabs(notes));
     expect(markdownToTxt(md)).toBe('Capítulo 1\n\nKaelith miró a Aldebarán.\n');
   });
 
@@ -108,5 +124,16 @@ describe('bloques de Folio en el .md (notas y diccionario)', () => {
   it('la exportación a TXT no incluye ningún bloque', () => {
     const md = joinDocument(doc(novel, 'Notas secretas', ['Aldebarán', 'Kaelith']));
     expect(markdownToTxt(md)).toBe('Capítulo 1\n\nKaelith miró a Aldebarán.\n');
+  });
+});
+
+describe('título de pestaña de notas', () => {
+  it('primera palabra de la nota o su número', () => {
+    expect(tabTitle('', 0)).toBe('1');
+    expect(tabTitle('  \n\n', 2)).toBe('3');
+    expect(tabTitle('Escaleta general\n1. Llegada', 0)).toBe('Escaleta');
+    expect(tabTitle('# Kaelith: ficha', 1)).toBe('Kaelith');
+    expect(tabTitle("d'Artagnan y otros", 1)).toBe("d'Artagnan");
+    expect(tabTitle('Supercalifragilístico', 0)).toBe('Supercalifragil…');
   });
 });
