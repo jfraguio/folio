@@ -1,6 +1,7 @@
 import { el, clear } from './el';
 import { openOverlay } from './Palette';
 import { NOTE_TABS } from '../persistence/folioBlocks';
+import { StatusDot, type DotState, type SaveStatus } from './StatusDot';
 
 let lastTab = 0;
 
@@ -14,7 +15,16 @@ export function tabTitle(text: string, index: number): string {
  * Bloc de notas de la novela: NOTE_TABS espacios de texto libre que se guardan en el .md
  * fuera del texto (ver folioBlocks.ts).
  */
-export function openNotes(notes: string[], onChange: (index: number, text: string) => void, restoreFocus?: () => void): void {
+export interface NotesOptions {
+  notes: string[];
+  onChange: (index: number, text: string) => void;
+  /** Estado del guardado, para el punto junto a «Cerrar». */
+  status: SaveStatus;
+  onStatusClick: (state: DotState) => void;
+  restoreFocus?: () => void;
+}
+
+export function openNotes({ notes, onChange, status, onStatusClick, restoreFocus }: NotesOptions): void {
   let active = lastTab;
   const textarea = el('textarea', {
     class: 'notes__text',
@@ -54,6 +64,9 @@ export function openNotes(notes: string[], onChange: (index: number, text: strin
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
   };
 
+  const dot = new StatusDot(onStatusClick);
+  const unsubscribe = status.subscribe((s, ls) => dot.set(s, ls));
+
   const panel = el(
     'div',
     { class: 'panel panel--tall panel--notes' },
@@ -64,8 +77,13 @@ export function openNotes(notes: string[], onChange: (index: number, text: strin
       tabs,
     ),
     textarea,
-    el('div', { class: 'panel__actions' }, el('button', { class: 'btn btn--quiet', on: { click: () => handle.close() } }, 'Cerrar')),
+    el(
+      'div',
+      { class: 'panel__actions' },
+      dot.root,
+      el('button', { class: 'btn btn--quiet', on: { click: () => handle.close() } }, 'Cerrar'),
+    ),
   );
-  const handle = openOverlay(panel, { restoreFocus, tall: true });
+  const handle = openOverlay(panel, { restoreFocus, tall: true, onClose: unsubscribe });
   show(active);
 }

@@ -19,7 +19,7 @@ import { SpellService } from '../spell/SpellService';
 import { SPELL_LANG } from '../spell/dictionaries';
 import { CommandRegistry, labelOf } from './commands';
 import { installShortcuts, shortcutFor } from './shortcuts';
-import { StatusDot } from '../ui/StatusDot';
+import { SaveStatus, StatusDot } from '../ui/StatusDot';
 import { createMenuButton } from '../ui/MenuButton';
 import { WordCounter } from '../ui/WordCounter';
 import { notice } from '../ui/Notice';
@@ -94,6 +94,8 @@ export async function startSession(o: SessionOptions): Promise<void> {
     else if (state === 'degraded') void commands.run('export.md');
     else void commands.run('palette');
   });
+  // Estado del guardado: el punto de la esquina y cualquier otro indicador (p. ej. el del panel de notas).
+  const saveStatus = new SaveStatus((state, lastSaved) => statusDot.set(state, lastSaved));
   const menuButton = createMenuButton(() => void commands.run('palette'));
   root.appendChild(menuButton);
   const wordCounter = new WordCounter();
@@ -136,7 +138,7 @@ export async function startSession(o: SessionOptions): Promise<void> {
   const markChanged = () => {
     liveDraft.schedule(getText());
     if (!degraded) autosave.markDirty();
-    else statusDot.set('degraded');
+    else saveStatus.set('degraded');
   };
   const refreshWords = () => {
     const index = getChapterIndex(view.state);
@@ -162,7 +164,7 @@ export async function startSession(o: SessionOptions): Promise<void> {
       write: async (t) => (await adapter.write(file, t)).mtime,
     },
     onState: (state, info) => {
-      statusDot.set(degraded ? 'degraded' : state, info.lastSaved);
+      saveStatus.set(degraded ? 'degraded' : state, info.lastSaved);
       if (state === 'saved') void liveDraft.clear();
     },
     onConflict: () => {
@@ -173,7 +175,7 @@ export async function startSession(o: SessionOptions): Promise<void> {
       else if (kind === 'not-found') notice('El archivo ya no está donde estaba. Pulsa el punto de estado para guardarlo en otro sitio.', 6000);
     },
   });
-  if (degraded) statusDot.set('degraded');
+  if (degraded) saveStatus.set('degraded');
   else autosave.accept(mtime, raw);
   if (draft && raw === draft.text) autosave.markDirty(); // el borrador recuperado debe escribirse
   dictionary.onChange(markChanged);
@@ -321,14 +323,19 @@ export async function startSession(o: SessionOptions): Promise<void> {
           closeOverlay();
           return;
         }
-        openNotes(
+        openNotes({
           notes,
-          (i, n) => {
+          onChange: (i, n) => {
             notes[i] = n;
             markChanged();
           },
-          focusEditor,
-        );
+          status: saveStatus,
+          // Solo los estados que requieren acción; en el resto el punto es informativo.
+          onStatusClick: (state) => {
+            if (state === 'error' || state === 'conflict' || state === 'degraded') statusDot.root.click();
+          },
+          restoreFocus: focusEditor,
+        });
       },
     },
     {

@@ -351,7 +351,7 @@ Reglas comunes:
 
 ### 14.1. Notas
 
-Tres espacios de texto libre por novela (escaleta, ideas, fichas de personajes…), en tres pestañas dentro del mismo bloque (cada pestaña muestra como título la primera palabra de su nota, o su número si está vacía), separados por líneas `[folio:nota N]`; los espacios vacíos no se escriben y un bloque sin marcadores (formato antiguo o editado a mano) se carga entero en el primero. Se abre desde la paleta con «Notas»: un panel que ocupa casi toda la ventana, con la cabecera «Notas» y las pestañas, un `textarea` sin placeholder en la fuente de la interfaz a tamaño reducido, y un botón «Cerrar» (también `Esc`). Cada pulsación se refleja en el documento; no hay botón de guardar. Se recuerda la última pestaña abierta durante la sesión.
+Tres espacios de texto libre por novela (escaleta, ideas, fichas de personajes…), en tres pestañas dentro del mismo bloque (cada pestaña muestra como título la primera palabra de su nota, o su número si está vacía), separados por líneas `[folio:nota N]`; los espacios vacíos no se escriben y un bloque sin marcadores (formato antiguo o editado a mano) se carga entero en el primero. Se abre desde la paleta con «Notas»: un panel que ocupa casi toda la ventana, con la cabecera «Notas» y las pestañas, un `textarea` sin placeholder en la fuente de la interfaz a tamaño reducido, y, a la izquierda del botón «Cerrar» (también `Esc`), el mismo punto de estado del guardado que hay en la esquina del editor. Cada pulsación se refleja en el documento y sigue el flujo normal de autosave; no hay botón de guardar. Se recuerda la última pestaña abierta durante la sesión.
 
 ### 14.2. Diccionario personal
 

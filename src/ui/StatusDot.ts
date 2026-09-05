@@ -13,6 +13,32 @@ const LABELS: Record<DotState, string> = {
   degraded: 'Borrador local · descarga el .md desde la paleta',
 };
 
+type StatusListener = (state: DotState, lastSaved?: number) => void;
+
+/** Último estado del guardado, observable: lo comparten todos los puntos de estado de la sesión. */
+export class SaveStatus {
+  state: DotState = 'idle';
+  lastSaved: number | undefined;
+  private listeners = new Set<StatusListener>();
+
+  constructor(main: StatusListener) {
+    this.listeners.add(main);
+  }
+
+  set(state: DotState, lastSaved?: number): void {
+    this.state = state;
+    if (lastSaved) this.lastSaved = lastSaved;
+    this.listeners.forEach((l) => l(state, lastSaved));
+  }
+
+  /** Suscribe un indicador; recibe el estado actual de inmediato. Devuelve la baja. */
+  subscribe(l: StatusListener): () => void {
+    this.listeners.add(l);
+    l(this.state, this.lastSaved);
+    return () => this.listeners.delete(l);
+  }
+}
+
 export class StatusDot {
   readonly root: HTMLButtonElement;
   private tip: HTMLElement;
