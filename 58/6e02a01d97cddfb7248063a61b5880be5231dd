@@ -1,0 +1,33 @@
+specs.md
+  s_648a5f7eb17a01::t_33ec0aac0d96f6 296-297,300,329-332,354
+src/app/session.ts
+  s_648a5f7eb17a01::t_d997ef7d9bda73 84,230,326-327
+src/persistence/folioBlocks.ts
+  s_648a5f7eb17a01::t_9c2e33ce6e6e6c 12-15,38-41,50-51,63,68-69,74-101
+src/styles/editor.css
+  s_648a5f7eb17a01::t_d73c24be3a2e8b 103
+src/styles/overlays.css
+  s_648a5f7eb17a01::t_6033c32c20e7f7 190,194,198-229
+src/styles/tokens.css
+  s_648a5f7eb17a01::t_51ef367e0dcb82 36-37,59
+src/ui/Notes.ts
+  s_648a5f7eb17a01::t_9436515150143d 1,3,5-18,21-28,30-56,60-65,70
+tests/persistence.test.ts
+  s_648a5f7eb17a01::t_f4aa257721e1c8 8,54-59,63,83-92,97,129-139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "586e02a01d97cddfb7248063a61b5880be5231dd",
+  "prompts": {},
+  "sessions": {
+    "s_648a5f7eb17a01": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f92d7d949ffeGOMA5K6yygYW8z",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "jfraguio <jfraguio@gmail.com>"
+    }
+  }
+}
