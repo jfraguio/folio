@@ -1,0 +1,33 @@
+src/app/session.ts
+  s_53b40f102a3c63::t_44cad4276353d0 40-49,56-57,73-81,83-88,92-104,106-123,125-126,128-132,134-150,152-158,160-168,170-184,186-198,200-205,207-234,236-243,246-256,258-268,270-290,292-297,299-302,304-305,307-319,321-335,337-364,366-368,370-392,394-404,406-410,412-419,421-427,430-431,433-443,445-495,497-501,503-511,513-517,519-541,543-545,547-553,555-568,570-578,580-589
+src/main.ts
+  s_f78bf9203da889::t_f141db5a9ec224 13,22-26,28,30-32,47,55,61,67,69-74
+src/persistence/locks.ts
+  s_f78bf9203da889::t_bea9c5a35515b7 4-6,8-9,13-18,22-23,30-32,44-46,57-61,71,75-81,93-100
+tests/locks.test.ts
+  s_f78bf9203da889::t_39a6be4ff65b13 1-98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d934bd8f0c3f9696400ea5b1cb13c92883e947a7",
+  "prompts": {},
+  "sessions": {
+    "s_53b40f102a3c63": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8a38cd4affe1TOUdOkGAgIkae",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "jfraguio <jfraguio@gmail.com>"
+    },
+    "s_f78bf9203da889": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f8a3b7e8fffecqyM8GWe3xdhLu",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "jfraguio <jfraguio@gmail.com>"
+    }
+  }
+}
