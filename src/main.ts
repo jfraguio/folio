@@ -10,7 +10,7 @@ import { initPrefsEffects } from './persistence/prefs';
 import { lastNovel, forgetNovel } from './persistence/novels';
 import { renderStartScreen } from './ui/StartScreen';
 import { notice } from './ui/Notice';
-import { startSession } from './app/session';
+import { startSession, type Session } from './app/session';
 import { el } from './ui/el';
 
 const root = document.getElementById('app')!;
@@ -19,8 +19,17 @@ const adapter = createAdapter();
 initPrefsEffects();
 document.body.appendChild(el('h1', { class: 'brand' }, 'Folio'));
 
+/** Sesión de edición viva, si la hay. Solo puede haber una: abrir otro archivo cierra la anterior. */
+let session: Session | null = null;
+/** Se incrementa cada vez que se empieza a abrir un archivo; sirve para descartar pantallas de inicio tardías. */
+let generation = 0;
+
 async function showStart(): Promise<void> {
+  const gen = generation;
   const last = adapter.capabilities.persistentHandle ? await lastNovel().catch(() => null) : null;
+  // Mientras se consultaba IndexedDB puede haber llegado un archivo (p. ej. desde el sistema
+  // operativo): entonces la pantalla de inicio ya no toca y pintarla borraría el editor.
+  if (gen !== generation) return;
   renderStartScreen(root, {
     degraded: !hasFsAccess(),
     mobile: isMobile(),
@@ -35,6 +44,7 @@ async function showStart(): Promise<void> {
     },
     onContinue: async (rec) => {
       if (!rec.handle) return;
+      let available = false;
       try {
         const ok = await FsAccessAdapter.ensurePermission(rec.handle);
         if (!ok) {
@@ -42,19 +52,26 @@ async function showStart(): Promise<void> {
           return;
         }
         await rec.handle.getFile();
-        await enter({ name: rec.handle.name, handle: rec.handle });
+        available = true;
       } catch {
         await forgetNovel(rec.id);
         notice('El archivo ya no está disponible.');
         await showStart();
       }
+      if (available) await enter({ name: rec.handle.name, handle: rec.handle });
     },
   });
 }
 
 async function enter(file: NovelFile): Promise<void> {
+  generation++;
   try {
-    await startSession({ root, adapter, file, onExit: () => void showStart() });
+    // Solo una sesión a la vez: si ya hay una novela abierta (p. ej. el sistema operativo nos
+    // entrega otro archivo), se guarda y se cierra antes, liberando su bloqueo.
+    const previous = session;
+    session = null;
+    await previous?.close();
+    session = await startSession({ root, adapter, file, onExit: () => void showStart() });
   } catch (e) {
     console.error(e);
     notice('No se pudo abrir la novela.');
