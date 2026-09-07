@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { getDB, resetDBForTests } from '../src/persistence/db';
 import { LiveDraft } from '../src/persistence/liveDraft';
 import { PersonalDictionary, takeLegacyWords } from '../src/persistence/dictionary';
-import { joinDocument, splitDocument } from '../src/persistence/folioBlocks';
+import { joinDocument, splitDocument, NOTE_TABS } from '../src/persistence/folioBlocks';
 import { markdownToTxt } from '../src/export/toTxt';
 import { tabTitle } from '../src/ui/Notes';
 
@@ -51,7 +51,7 @@ describe('PersonalDictionary', () => {
 
 describe('bloques de Folio en el .md (notas y diccionario)', () => {
   const novel = '# Capítulo 1\n\nKaelith miró a Aldebarán.\n';
-  const tabs = (a = '', b = '', c = '') => [a, b, c];
+  const tabs = (...t: string[]) => Array.from({ length: NOTE_TABS }, (_, i) => t[i] ?? '');
   const doc = (body: string, notes: string | string[] = '', words: string[] = []) => ({
     body,
     notes: typeof notes === 'string' ? tabs(notes) : notes,
@@ -80,11 +80,17 @@ describe('bloques de Folio en el .md (notas y diccionario)', () => {
     expect(splitDocument(joinDocument(doc(novel, notes)))).toEqual(doc(novel, notes));
   });
 
-  it('tres espacios de notas dentro del mismo bloque; los vacíos no se escriben', () => {
-    const md = joinDocument(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos')));
-    expect(md).toContain('\n\n[folio:nota 1]\nUno\n\n[folio:nota 3]\nTres\n\ncon párrafos\n-->');
+  it('seis espacios de notas dentro del mismo bloque; los vacíos no se escriben', () => {
+    expect(NOTE_TABS).toBe(6);
+    const md = joinDocument(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos\n', '', '', 'Seis')));
+    expect(md).toContain('\n\n[folio:nota 1]\nUno\n\n[folio:nota 3]\nTres\n\ncon párrafos\n\n[folio:nota 6]\nSeis\n-->');
     expect(md).not.toContain('[folio:nota 2]');
-    expect(splitDocument(md)).toEqual(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos')));
+    expect(md).not.toContain('[folio:nota 4]');
+    expect(md).not.toContain('[folio:nota 5]');
+    expect(splitDocument(md)).toEqual(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos\n', '', '', 'Seis')));
+    // un marcador fuera de rango se ignora
+    const over = 'Hola\n\n<!-- folio:notas\nd\n\n[folio:nota 7]\nFuera\n-->\n';
+    expect(splitDocument(over).notes).toEqual(tabs());
     // notas antiguas sin marcador de espacio: todo al primero
     const legacy = 'Hola\n\n<!-- folio:notas\nd\n\nTexto suelto\n-->\n';
     expect(splitDocument(legacy).notes).toEqual(tabs('Texto suelto'));
@@ -131,6 +137,7 @@ describe('título de pestaña de notas', () => {
   it('primera palabra de la nota o su número', () => {
     expect(tabTitle('', 0)).toBe('1');
     expect(tabTitle('  \n\n', 2)).toBe('3');
+    expect(tabTitle('', 5)).toBe('6');
     expect(tabTitle('Escaleta general\n1. Llegada', 0)).toBe('Escaleta');
     expect(tabTitle('# Kaelith: ficha', 1)).toBe('Kaelith');
     expect(tabTitle("d'Artagnan y otros", 1)).toBe("d'Artagnan");
