@@ -50,3 +50,15 @@ export function relativeTime(ts: number, now = Date.now()): string {
   const d = new Date(ts);
   return d.toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
+
+/** Fecha y hora absolutas, p. ej. «7 sept 2026, 13:42:05». */
+export function formatDateTime(ts: number): string {
+  return new Date(ts).toLocaleString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}

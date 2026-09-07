@@ -28,7 +28,7 @@ import { openDialog } from '../ui/Dialog';
 import { openDictionaryManager } from '../ui/DictionaryManager';
 import { openNotes } from '../ui/Notes';
 import { formatNumber } from '../text/words';
-import { el, relativeTime } from '../ui/el';
+import { el, formatDateTime, relativeTime } from '../ui/el';
 
 export interface SessionOptions {
   root: HTMLElement;
@@ -232,6 +232,19 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     else autosave.accept(mtime, diskText);
     if (recovered && !degraded) autosave.markDirty(); // el borrador recuperado debe escribirse
     dictionary.onChange(markChanged);
+
+    // La marca «Folio» muestra al pasar el ratón el archivo abierto y la fecha de su última
+    // modificación correcta en disco (el mtime devuelto por la última escritura que funcionó).
+    // La File System Access API no expone la ruta completa del archivo, solo su nombre.
+    const brand = document.querySelector<HTMLElement>('.brand');
+    if (brand) {
+      disposers.push(
+        saveStatus.subscribe(() => {
+          brand.title = `${file.name}\nÚltima modificación: ${formatDateTime(autosave.lastKnownMtime)}`;
+        }),
+      );
+      disposers.push(() => brand.removeAttribute('title'));
+    }
 
     // Migración: las palabras que versiones anteriores guardaban en el navegador pasan a esta novela.
     if (!degraded) {

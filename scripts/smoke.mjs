@@ -110,6 +110,14 @@ const saved = await page.evaluate(() => window.__files['novela.md']?.text);
 check('autosave escribe en el archivo', saved === '# Capítulo 1\n\nEl hombre llegó a la estación poco después de las doce.', JSON.stringify(saved));
 const dotState = await page.getAttribute('.status-dot', 'data-state');
 check('indicador en estado saved', dotState === 'saved', dotState);
+const brandTitle = await page.getAttribute('.brand', 'title');
+const savedMtime = await page.evaluate(() => window.__files['novela.md']?.mtime);
+check(
+  'la marca muestra archivo y última modificación en el title',
+  /^novela\.md\nÚltima modificación: .+\d{2}:\d{2}:\d{2}$/.test(brandTitle ?? '') &&
+    brandTitle.includes(new Date(savedMtime).toLocaleString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })),
+  JSON.stringify(brandTitle),
+);
 
 await page.screenshot({ path: '/tmp/folio-light.png' });
 await page.screenshot({ path: '/tmp/folio-brand.png', clip: { x: 1080, y: 0, width: 200, height: 60 } });
@@ -296,6 +304,8 @@ await page.waitForSelector('.cm-content');
 const opened = await page.textContent('.cm-content');
 check('abre novela existente', opened.includes('Hola mundo'), opened.slice(0, 60));
 check('al abrir, todo el texto fuerte aunque el cursor esté en la primera línea', (await page.$('.cm-focus-active')) === null);
+const existingTitle = await page.getAttribute('.brand', 'title');
+check('la marca refleja la novela abierta y su mtime en disco', existingTitle?.startsWith('existente.md\nÚltima modificación: 1 ene 1970'), JSON.stringify(existingTitle));
 await page.click('.cm-line:has-text("Hola mundo")');
 check('clic en un párrafo de la novela abierta lo resalta', (await page.$('.cm-focus-active .cm-active-para')) !== null);
 
