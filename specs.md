@@ -151,15 +151,27 @@ Extensiones activas: `history`, `drawSelection`, `EditorView.lineWrapping`, `mar
 
 El párrafo en el que se encuentra el cursor se muestra con el contraste principal; el resto, ligeramente atenuado. La diferencia es **sutil**: no se pretende esconder el documento, solo dirigir la atención.
 
-Un párrafo es el bloque de líneas no vacías contiguas que contiene el cursor (o, si el cursor está en una línea vacía, esa línea).
+Un párrafo es el bloque de líneas no vacías contiguas que contiene el cursor. Una línea en blanco no es un párrafo.
+
+**Por defecto todo el texto se ve con el contraste principal.** Solo se atenúa el resto cuando el cursor está dentro de un párrafo, es decir, cuando se cumplen dos condiciones: el usuario ha colocado el cursor en el texto (clic sobre una línea, teclado, escritura o salto a un capítulo) **y** la línea del cursor tiene texto. En cualquier otro caso —al abrir un documento, tras un clic fuera del texto, con el cursor en una línea en blanco o con el editor sin foco— no hay párrafo resaltado y todo el texto se ve fuerte.
+
+Un clic fuera del texto (márgenes laterales o padding superior/inferior de `.cm-content`) **no mueve la selección** ni inicia una selección por arrastre: simplemente retira el cursor del texto, que deja de mostrarse. El editor conserva el foco, así que al teclear o pulsar una flecha el cursor reaparece donde estaba.
 
 ### 8.1. Implementación
 
-`ViewPlugin` que escucha `update.selectionSet` y `update.docChanged`. Calcula el rango del párrafo activo y emite `Decoration.line({ class: 'cm-active-para' })` para cada línea del mismo. El atenuado es el estado por defecto vía CSS:
+`StateField<boolean>` (`cursorPlaced`) que indica si el usuario ha colocado el cursor dentro del texto. Arranca en `false`. Cambia por estas vías:
+
+- `mousedown` sobre una `.cm-line` → `true` (CodeMirror procesa el clic con normalidad). `mousedown` en cualquier otro punto del editor → `false` y `preventDefault()`, de modo que ni el navegador ni CodeMirror tocan la selección. El listener se registra sobre `view.dom` (el `.cm-editor`) en fase de captura, **no** con `EditorView.domEventHandlers`: CodeMirror solo engancha esos manejadores en `.cm-content`, y un clic en los márgenes laterales cae en `.cm-scroller`.
+- `keydown` de cualquier tecla que no sea un modificador suelto, `Escape` o un atajo con Cmd/Ctrl → `true`. Se usa `EditorView.domEventObservers` (no `domEventHandlers`), porque el keymap consume las teclas de navegación devolviendo `true` y los manejadores posteriores no se ejecutarían.
+- Transacción de usuario que cambie el documento (`isUserEvent('input')` o `'delete'`) → `true`.
+- Transacción que mueva la selección sin `userEvent` `select` (saltos programáticos: capítulos, cursor inicial de una novela nueva) → `true`.
+
+`hasActiveParagraph(state)` = `cursorPlaced && lineAt(head).text.trim() !== ''`. Un `ViewPlugin` escucha `update.selectionSet`, `update.docChanged` y los cambios del campo; si hay párrafo activo calcula su rango y emite `Decoration.line({ class: 'cm-active-para' })` para cada línea; si no, no emite decoraciones. El editor lleva la clase `cm-cursor-placed` mientras el campo es `true` (sin ella, el cursor se oculta vía CSS) y `cm-focus-active` mientras `hasActiveParagraph` es `true`. El atenuado se aplica solo en ese estado vía CSS:
 
 ```css
-.cm-content { color: var(--fg-dim); transition: color 120ms ease; }
-.cm-active-para { color: var(--fg); }
+.cm-content { color: var(--fg); transition: color 120ms ease; }
+.cm-editor.cm-focus-active.cm-focused .cm-content { color: var(--fg-dim); }
+.cm-editor.cm-focus-active.cm-focused .cm-active-para { color: var(--fg); }
 @media (prefers-reduced-motion: reduce) { .cm-content { transition: none; } }
 ```
 

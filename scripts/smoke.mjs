@@ -114,8 +114,48 @@ check('indicador en estado saved', dotState === 'saved', dotState);
 await page.screenshot({ path: '/tmp/folio-light.png' });
 await page.screenshot({ path: '/tmp/folio-brand.png', clip: { x: 1080, y: 0, width: 200, height: 60 } });
 
-// Focus mode aplicado.
-check('focus mode activo', (await page.$('.cm-focus-mode .cm-active-para')) !== null);
+// Focus mode: el resto del texto solo se atenúa cuando el cursor está sobre una línea con texto
+// puesta ahí por el usuario (clic, teclado o escritura). Fuera del texto o en línea en blanco, todo fuerte.
+// Un clic fuera del texto (márgenes o padding) no mueve la selección y oculta el cursor.
+check('escribir activa el resaltado del párrafo', (await page.$('.cm-focus-active .cm-active-para')) !== null);
+const contentBox = await page.$eval('.cm-content', (e) => e.getBoundingClientRect().toJSON());
+const paraBox = await page.$eval('.cm-line:has-text("El hombre")', (e) => e.getBoundingClientRect().toJSON());
+const selectionHead = () => page.$eval('.cm-content', (e) => e.cmTile.root.view.state.selection.main.head);
+const cursorVisible = () => page.$eval('.cm-cursor', (e) => getComputedStyle(e).display !== 'none').catch(() => false);
+const noActive = async () => (await page.$('.cm-focus-active')) === null;
+const active = async () => (await page.$('.cm-focus-active .cm-active-para')) !== null;
+
+const headBefore = await selectionHead();
+await page.mouse.click(contentBox.x + contentBox.width / 2, contentBox.y + 20); // padding superior
+check('clic en el padding: todo fuerte', await noActive());
+check('clic en el padding: cursor oculto', !(await cursorVisible()));
+check('clic en el padding: la selección no se mueve', (await selectionHead()) === headBefore);
+await page.mouse.click(8, paraBox.y + paraBox.height / 2); // margen izquierdo, a la altura del párrafo
+check('clic en el margen lateral: todo fuerte', await noActive());
+check('clic en el margen lateral: cursor oculto', !(await cursorVisible()));
+check('clic en el margen lateral: la selección no se mueve', (await selectionHead()) === headBefore);
+check('clic en el margen lateral: no hay texto seleccionado', await page.$eval('.cm-content', (e) => e.cmTile.root.view.state.selection.main.empty));
+await page.click('.cm-line:has-text("El hombre")');
+check('clic en el texto resalta el párrafo', await active());
+check('clic en el texto: cursor visible', await cursorVisible());
+const headAfterTextClick = await selectionHead();
+await page.mouse.click(8, paraBox.y + paraBox.height / 2);
+check('clic fuera vuelve a poner todo fuerte', await noActive());
+check('clic fuera: la selección sigue donde estaba', (await selectionHead()) === headAfterTextClick);
+await page.keyboard.press('ArrowUp'); // línea en blanco entre título y párrafo
+check('cursor en línea en blanco: todo fuerte', await noActive());
+check('cursor en línea en blanco: cursor visible', await cursorVisible());
+await page.keyboard.press('ArrowUp'); // título
+check('mover el cursor con el teclado a un párrafo lo resalta', await active());
+await page.keyboard.press('ArrowDown');
+check('volver a la línea en blanco: todo fuerte', await noActive());
+await page.keyboard.press('ArrowDown'); // párrafo
+await page.mouse.click(8, paraBox.y + paraBox.height / 2);
+await page.keyboard.press('End');
+await page.keyboard.type(' ');
+check('teclear vuelve a resaltar el párrafo', await active());
+await page.keyboard.press('Backspace');
+await page.waitForTimeout(2000);
 
 // Encabezado estilizado.
 check('encabezado H1 estilizado', (await page.$('.cm-md-heading1')) !== null);
@@ -255,6 +295,9 @@ await page.click('.start__action:has-text("Abrir")');
 await page.waitForSelector('.cm-content');
 const opened = await page.textContent('.cm-content');
 check('abre novela existente', opened.includes('Hola mundo'), opened.slice(0, 60));
+check('al abrir, todo el texto fuerte aunque el cursor esté en la primera línea', (await page.$('.cm-focus-active')) === null);
+await page.click('.cm-line:has-text("Hola mundo")');
+check('clic en un párrafo de la novela abierta lo resalta', (await page.$('.cm-focus-active .cm-active-para')) !== null);
 
 await page.screenshot({ path: '/tmp/folio-editor.png' });
 

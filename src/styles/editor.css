@@ -30,16 +30,22 @@
 .cm-editor .cm-content {
   max-width: var(--measure);
   margin: 0 auto;
-  padding: 22vh 1.5rem 60vh;
+  padding: 22vh 0 60vh;
   caret-color: var(--fg);
-  color: var(--fg-dim);
+  color: var(--fg);
   transition: color var(--ease);
 }
 
-/* Sin focus mode todo el texto lleva el color principal. */
-.cm-editor:not(.cm-focus-mode) .cm-content,
-.cm-editor.cm-focus-mode .cm-active-para,
-.cm-editor:not(.cm-focused) .cm-content {
+/*
+ * Focus mode: el texto solo se atenúa cuando hay un párrafo activo
+ * (cm-focus-active, tras hacer clic sobre el texto de un párrafo) y el editor tiene el foco.
+ * El párrafo activo conserva el color principal.
+ */
+.cm-editor.cm-focus-active.cm-focused .cm-content {
+  color: var(--fg-dim);
+}
+
+.cm-editor.cm-focus-active.cm-focused .cm-active-para {
   color: var(--fg);
 }
 
@@ -50,6 +56,16 @@
 
 .cm-editor .cm-cursor, .cm-editor .cm-dropCursor {
   border-left: 2px solid var(--fg);
+}
+
+/* Sin cursor colocado en el texto (al abrir, o tras un clic en los márgenes) el cursor no se muestra.
+   El selector replica la especificidad de la regla base de CodeMirror que lo hace visible con el foco. */
+.cm-editor.cm-focused:not(.cm-cursor-placed) > .cm-scroller > .cm-cursorLayer .cm-cursor {
+  display: none;
+}
+
+.cm-editor:not(.cm-cursor-placed) .cm-content {
+  caret-color: transparent;
 }
 
 .cm-editor .cm-selectionBackground,
