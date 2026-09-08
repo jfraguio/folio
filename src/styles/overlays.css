@@ -190,6 +190,53 @@
   color: var(--err);
 }
 
+/* ---------- Historial (copias de seguridad de apertura) ---------- */
+
+.history {
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.history > .panel__meta {
+  padding: 0.8rem 1rem;
+}
+
+.history__row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.45rem 1rem;
+  color: var(--fg);
+}
+
+.history__row + .history__row {
+  border-top: 1px solid var(--panel-border);
+}
+
+.history__date {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.history__words {
+  flex: none;
+  font-size: 0.72rem;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.history__download {
+  flex: none;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.7rem;
+}
+
 /* ---------- Notas ---------- */
 
 .overlay--tall {

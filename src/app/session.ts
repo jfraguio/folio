@@ -1,7 +1,7 @@
 import { EditorView } from '@codemirror/view';
 import type { FileAdapter, NovelFile } from '../fs/FileAdapter';
 import { FsAccessAdapter } from '../fs/FsAccessAdapter';
-import { download } from '../fs/FallbackAdapter';
+import { download, saveToNewFile } from '../fs/FallbackAdapter';
 import { createEditor, jumpTo } from '../editor/createEditor';
 import { typewriter, typewriterCompartment } from '../editor/typewriter';
 import { spanishTypography, typographyCompartment } from '../editor/typography';
@@ -9,6 +9,7 @@ import { spellcheck, spellCompartment, wordAt } from '../editor/spellcheck';
 import { chapterAt, getChapterIndex } from '../editor/chapters';
 import { Autosave } from '../persistence/autosave';
 import { LiveDraft } from '../persistence/liveDraft';
+import { saveOpeningBackup } from '../persistence/backups';
 import { resolveNovelId } from '../persistence/novels';
 import { acquireNovelLock } from '../persistence/locks';
 import { PersonalDictionary, takeLegacyWords } from '../persistence/dictionary';
@@ -27,6 +28,7 @@ import { openPalette, closeOverlay, isOverlayOpen } from '../ui/Palette';
 import { openDialog } from '../ui/Dialog';
 import { openDictionaryManager } from '../ui/DictionaryManager';
 import { openNotes } from '../ui/Notes';
+import { openHistory } from '../ui/History';
 import { formatNumber } from '../text/words';
 import { el, formatDateTime, relativeTime } from '../ui/el';
 
@@ -104,7 +106,11 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
   disposers.push(() => lock.release());
 
   try {
-    // 3. Comprobación de borrador vivo (guarda el texto completo, bloque incluido).
+    // 3. Copia de seguridad de apertura: lo que hay en el disco, antes de cualquier recuperación.
+    // Nunca bloquea la apertura: si IndexedDB falla, simplemente no hay copia de hoy.
+    const backupReady = degraded ? Promise.resolve() : saveOpeningBackup(novelId, diskText).then(() => {}, () => {});
+
+    // 4. Comprobación de borrador vivo (guarda el texto completo, bloque incluido).
     const liveDraft = new LiveDraft(novelId);
     const draft = await LiveDraft.read(novelId);
     let recovered = false;
@@ -348,6 +354,30 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         },
       },
       {
+        id: 'notes',
+        label: 'Notas',
+        keywords: 'escaleta ideas personajes apuntes bloc',
+        run: () => {
+          if (isOverlayOpen()) {
+            closeOverlay();
+            return;
+          }
+          openNotes({
+            notes,
+            onChange: (i, n) => {
+              notes[i] = n;
+              markChanged();
+            },
+            status: saveStatus,
+            // Solo los estados que requieren acción; en el resto el punto es informativo.
+            onStatusClick: (state) => {
+              if (state === 'error' || state === 'conflict' || state === 'degraded') statusDot.root.click();
+            },
+            restoreFocus: focusEditor,
+          });
+        },
+      },
+      {
         id: 'chapters',
         label: 'Capítulos',
         keywords: 'navegar ir a escena',
@@ -381,30 +411,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         },
       },
       {
-        id: 'notes',
-        label: 'Notas',
-        keywords: 'escaleta ideas personajes apuntes bloc',
-        run: () => {
-          if (isOverlayOpen()) {
-            closeOverlay();
-            return;
-          }
-          openNotes({
-            notes,
-            onChange: (i, n) => {
-              notes[i] = n;
-              markChanged();
-            },
-            status: saveStatus,
-            // Solo los estados que requieren acción; en el resto el punto es informativo.
-            onStatusClick: (state) => {
-              if (state === 'error' || state === 'conflict' || state === 'degraded') statusDot.root.click();
-            },
-            restoreFocus: focusEditor,
-          });
-        },
-      },
-      {
         id: 'fullscreen',
         label: () => (document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa'),
         run: async () => {
@@ -429,6 +435,78 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         run: () => {
           const on = prefs.toggle('typewriter');
           view.dispatch({ effects: typewriterCompartment.reconfigure(typewriter(on)) });
+        },
+      },
+      {
+        id: 'typography.toggle',
+        label: () => (prefs.get('typographyEs') ? 'Desactivar asistencia literaria' : 'Activar asistencia literaria'),
+        keywords: 'raya comillas guion largo',
+        run: () => {
+          const on = prefs.toggle('typographyEs');
+          view.dispatch({ effects: typographyCompartment.reconfigure(spanishTypography(on)) });
+          if (on) notice('-- → —   " → « »   ... → …', 4000);
+        },
+      },
+      {
+        id: 'spell.toggle',
+        label: () => (prefs.get('spellEnabled') ? 'Desactivar corrector' : 'Activar corrector'),
+        keywords: 'ortografía',
+        run: () => setSpellEnabled(!prefs.get('spellEnabled')),
+      },
+      {
+        id: 'dictionary.add',
+        label: () => {
+          const w = wordAt(view, view.state.selection.main.head);
+          return w ? `Añadir «${w.word}» al diccionario` : 'Añadir palabra al diccionario';
+        },
+        keywords: 'ortografía aceptar palabra',
+        when: () => wordAt(view, view.state.selection.main.head) !== null,
+        run: async () => {
+          const w = wordAt(view, view.state.selection.main.head);
+          if (!w) return;
+          dictionary.add(w.word);
+          await spell.addWords([w.word]);
+          rescanSpell();
+          notice(`«${w.word}» añadida al diccionario.`);
+        },
+      },
+      {
+        id: 'dictionary.manage',
+        label: 'Diccionario',
+        run: () => openDictionaryManager(dictionary, reloadSpell, focusEditor),
+      },
+      {
+        id: 'history',
+        label: 'Historial',
+        keywords: 'copias de seguridad versiones backup respaldo',
+        // En modo degradado la identidad del archivo no es estable y no se guardan copias.
+        when: () => !degraded,
+        run: async () => {
+          if (isOverlayOpen()) {
+            closeOverlay();
+            return;
+          }
+          await backupReady; // que la copia de hoy, si la hay, ya esté en la lista
+          openHistory(novelId, file.name, focusEditor);
+        },
+      },
+      {
+        id: 'export.md',
+        label: 'Descargar el .md',
+        when: () => degraded,
+        run: () => download(getText(), file.name || 'novela.md', 'text/markdown'),
+      },
+      {
+        id: 'export.txt',
+        label: 'Exportar',
+        keywords: 'texto plano',
+        run: async () => {
+          await autosave.flush();
+          const { markdownToTxt } = await import('../export/toTxt');
+          const txt = markdownToTxt(getText());
+          const name = file.name.replace(/\.(md|markdown)$/i, '') + '.txt';
+          const saved = await saveToNewFile(txt, name, { description: 'Texto', mime: 'text/plain', extension: '.txt' });
+          if (saved && 'showSaveFilePicker' in window) notice(`Exportado a ${saved}`);
         },
       },
       {
@@ -469,39 +547,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         run: saveAs,
       },
       {
-        id: 'export.md',
-        label: 'Descargar el .md',
-        when: () => degraded,
-        run: () => download(getText(), file.name || 'novela.md', 'text/markdown'),
-      },
-      {
-        id: 'export.txt',
-        label: 'Exportar',
-        keywords: 'texto plano',
-        run: async () => {
-          await autosave.flush();
-          const { markdownToTxt } = await import('../export/toTxt');
-          const txt = markdownToTxt(getText());
-          const name = file.name.replace(/\.(md|markdown)$/i, '') + '.txt';
-          if ('showSaveFilePicker' in window) {
-            try {
-              const h = await window.showSaveFilePicker({
-                suggestedName: name,
-                types: [{ description: 'Texto', accept: { 'text/plain': ['.txt'] } }],
-              });
-              const w = await h.createWritable();
-              await w.write(txt);
-              await w.close();
-              notice(`Exportado a ${h.name}`);
-            } catch (e) {
-              if (!(e instanceof DOMException && e.name === 'AbortError')) throw e;
-            }
-          } else {
-            download(txt, name, 'text/plain');
-          }
-        },
-      },
-      {
         id: 'font.increase',
         label: 'Aumentar tamaño del texto',
         hidden: true, // solo por atajo
@@ -512,44 +557,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         label: 'Reducir tamaño del texto',
         hidden: true, // solo por atajo
         run: () => prefs.set('fontSize', Math.max(FONT_SIZE_MIN, prefs.get('fontSize') - 1)),
-      },
-      {
-        id: 'typography.toggle',
-        label: () => (prefs.get('typographyEs') ? 'Desactivar asistencia literaria' : 'Activar asistencia literaria'),
-        keywords: 'raya comillas guion largo',
-        run: () => {
-          const on = prefs.toggle('typographyEs');
-          view.dispatch({ effects: typographyCompartment.reconfigure(spanishTypography(on)) });
-          if (on) notice('-- → —   " → « »   ... → …', 4000);
-        },
-      },
-      {
-        id: 'spell.toggle',
-        label: () => (prefs.get('spellEnabled') ? 'Desactivar corrector' : 'Activar corrector'),
-        keywords: 'ortografía',
-        run: () => setSpellEnabled(!prefs.get('spellEnabled')),
-      },
-      {
-        id: 'dictionary.add',
-        label: () => {
-          const w = wordAt(view, view.state.selection.main.head);
-          return w ? `Añadir «${w.word}» al diccionario` : 'Añadir palabra al diccionario';
-        },
-        keywords: 'ortografía aceptar palabra',
-        when: () => wordAt(view, view.state.selection.main.head) !== null,
-        run: async () => {
-          const w = wordAt(view, view.state.selection.main.head);
-          if (!w) return;
-          dictionary.add(w.word);
-          await spell.addWords([w.word]);
-          rescanSpell();
-          notice(`«${w.word}» añadida al diccionario.`);
-        },
-      },
-      {
-        id: 'dictionary.manage',
-        label: 'Diccionario',
-        run: () => openDictionaryManager(dictionary, reloadSpell, focusEditor),
       },
     );
 

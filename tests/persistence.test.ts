@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
 import { getDB, resetDBForTests } from '../src/persistence/db';
 import { LiveDraft } from '../src/persistence/liveDraft';
+import { BACKUP_KEEP, backupFileName, listBackups, localDay, saveOpeningBackup } from '../src/persistence/backups';
 import { PersonalDictionary, takeLegacyWords } from '../src/persistence/dictionary';
 import { joinDocument, splitDocument, NOTE_TABS } from '../src/persistence/folioBlocks';
 import { markdownToTxt } from '../src/export/toTxt';
@@ -22,6 +23,56 @@ describe('LiveDraft', () => {
     expect((await LiveDraft.read('n1'))?.text).toBe('dos');
     await d.clear();
     expect(await LiveDraft.read('n1')).toBeUndefined();
+  });
+});
+
+describe('copias de seguridad de apertura', () => {
+  const day = (n: number) => new Date(2026, 8, n, 10, 0, 0).getTime(); // septiembre de 2026, 10:00 local
+
+  it('guarda el texto del disco con su fecha y sus palabras, y lista de la más reciente a la más antigua', async () => {
+    expect(await saveOpeningBackup('n1', '# Uno\n\nHola mundo.\n', day(1))).toBe(true);
+    expect(await saveOpeningBackup('n1', '# Uno\n\nHola mundo entero.\n\n<!-- folio:notas\nd\n\n[folio:nota 1]\nmuchas palabras de notas\n-->\n', day(2))).toBe(true);
+    const list = await listBackups('n1');
+    expect(list.map((b) => [b.day, b.words, b.text.length > 0])).toEqual([
+      ['2026-09-02', 3, true], // las notas no cuentan
+      ['2026-09-01', 2, true],
+    ]);
+    expect(list[0]!.ts).toBe(day(2));
+    expect(localDay(day(2))).toBe('2026-09-02');
+    // otra novela no ve estas copias
+    expect(await listBackups('n2')).toEqual([]);
+  });
+
+  it('una copia por día como mucho: la primera apertura del día', async () => {
+    expect(await saveOpeningBackup('n1', 'mañana', day(1))).toBe(true);
+    expect(await saveOpeningBackup('n1', 'tarde', day(1) + 6 * 3600_000)).toBe(false);
+    expect((await listBackups('n1')).map((b) => b.text)).toEqual(['mañana']);
+  });
+
+  it('no guarda un contenido idéntico a una copia existente, aunque sea otro día', async () => {
+    expect(await saveOpeningBackup('n1', 'A', day(1))).toBe(true);
+    expect(await saveOpeningBackup('n1', 'A', day(2))).toBe(false);
+    expect(await saveOpeningBackup('n1', 'B', day(3))).toBe(true);
+    expect(await saveOpeningBackup('n1', 'A', day(4))).toBe(false); // vuelve a un estado ya guardado
+    expect((await listBackups('n1')).map((b) => b.day)).toEqual(['2026-09-03', '2026-09-01']);
+  });
+
+  it(`conserva solo las ${BACKUP_KEEP} copias más recientes`, async () => {
+    for (let n = 1; n <= BACKUP_KEEP + 3; n++) expect(await saveOpeningBackup('n1', `texto ${n}`, day(n))).toBe(true);
+    const list = await listBackups('n1');
+    expect(list).toHaveLength(BACKUP_KEEP);
+    expect(list[0]!.text).toBe(`texto ${BACKUP_KEEP + 3}`);
+    expect(list.at(-1)!.text).toBe('texto 4');
+    // y la de otra novela no se ve afectada
+    expect(await saveOpeningBackup('n2', 'otra', day(1))).toBe(true);
+    expect(await listBackups('n2')).toHaveLength(1);
+    expect(await listBackups('n1')).toHaveLength(BACKUP_KEEP);
+  });
+
+  it('nombre de descarga: novela y día', () => {
+    expect(backupFileName('mi novela.md', { day: '2026-09-08' })).toBe('mi novela — 2026-09-08.md');
+    expect(backupFileName('Otra.markdown', { day: '2026-01-01' })).toBe('Otra — 2026-01-01.md');
+    expect(backupFileName('', { day: '2026-01-01' })).toBe('novela — 2026-01-01.md');
   });
 });
 

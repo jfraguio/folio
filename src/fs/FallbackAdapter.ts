@@ -63,3 +63,32 @@ export function download(text: string, name: string, mime: string): void {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/**
+ * Guarda un texto en un archivo nuevo elegido por el usuario (`showSaveFilePicker`) o, si el
+ * navegador no lo permite, lo descarga. Devuelve el nombre final, o `null` si el usuario canceló.
+ * Nunca toca el archivo de la novela abierta.
+ */
+export async function saveToNewFile(
+  text: string,
+  suggestedName: string,
+  type: { description: string; mime: `${string}/${string}`; extension: `.${string}` },
+): Promise<string | null> {
+  if (!('showSaveFilePicker' in window)) {
+    download(text, suggestedName, type.mime);
+    return suggestedName;
+  }
+  try {
+    const h = await window.showSaveFilePicker({
+      suggestedName,
+      types: [{ description: type.description, accept: { [type.mime]: [type.extension] } }],
+    });
+    const w = await h.createWritable();
+    await w.write(text);
+    await w.close();
+    return h.name;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return null;
+    throw e;
+  }
+}

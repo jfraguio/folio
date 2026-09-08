@@ -311,6 +311,38 @@ check('la marca refleja la novela abierta y su mtime en disco', existingTitle?.s
 await page.click('.cm-line:has-text("Hola mundo")');
 check('clic en un párrafo de la novela abierta lo resalta', (await page.$('.cm-focus-active .cm-active-para')) !== null);
 
+// Historial: la copia de apertura de hoy, solo descargable.
+const existingDisk = await page.evaluate(() => window.__files['existente.md'].text);
+await page.keyboard.type(' Y algo más.'); // el editor cambia, pero la copia sigue siendo la del disco al abrir
+await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k');
+await page.waitForSelector('.panel__list');
+const menuWithHistory = await page.$$eval('.panel__item .panel__label', (els) => els.map((e) => e.textContent));
+check('menú con "Historial"', menuWithHistory.includes('Historial'), JSON.stringify(menuWithHistory));
+await page.click('.panel__item:has-text("Historial")');
+await page.waitForSelector('.history__row');
+const rows = await page.$$eval('.history__row', (els) => els.map((r) => [r.querySelector('.history__date').textContent, r.querySelector('.history__words').textContent]));
+check('historial: una copia de hoy con sus palabras', rows.length === 1 && /\d{4}, \d{2}:\d{2}:\d{2}$/.test(rows[0][0]) && rows[0][1] === '3 palabras', JSON.stringify(rows));
+check('historial: sin opción de restaurar', (await page.$$eval('.panel button', (els) => els.map((e) => e.textContent))).every((t) => !/restaurar|recuperar|\bcargar\b/i.test(t)));
+const filesBefore = await page.evaluate(() => Object.keys(window.__files));
+await page.click('.history__download');
+await page.waitForFunction((n) => Object.keys(window.__files).length > n, filesBefore.length, { timeout: 3000 }).catch(() => null);
+const backupName = await page.evaluate((before) => Object.keys(window.__files).find((k) => !before.includes(k)), filesBefore);
+const backupText = backupName ? await page.evaluate((k) => window.__files[k].text, backupName) : null;
+check('historial: descarga un .md nuevo con el nombre de la novela y el día', /^existente — \d{4}-\d{2}-\d{2}\.md$/.test(backupName ?? ''), String(backupName));
+check('historial: el contenido descargado es el del disco al abrir, no el del editor', backupText === existingDisk && !backupText.includes('Y algo más'), JSON.stringify(backupText));
+await page.keyboard.press('Escape');
+await page.waitForTimeout(2000);
+// Reabrir el mismo día no añade otra copia.
+await page.reload();
+await page.waitForSelector('.start');
+await page.click('.start__action:has-text("Abrir")');
+await page.waitForSelector('.cm-content');
+await page.keyboard.press(process.platform === 'darwin' ? 'Meta+k' : 'Control+k');
+await page.click('.panel__item:has-text("Historial")');
+await page.waitForSelector('.history__row');
+check('historial: reabrir el mismo día no crea otra copia', (await page.$$('.history__row')).length === 1);
+await page.keyboard.press('Escape');
+
 await page.screenshot({ path: '/tmp/folio-editor.png' });
 
 await browser.close();

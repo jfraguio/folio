@@ -15,7 +15,7 @@ Principios fundamentales:
 - Guardado automático y transparente.
 - Organización sencilla por capítulos.
 - Markdown/texto plano como formato de trabajo.
-- Sin control de versiones: el archivo en el equipo es la única fuente de verdad.
+- Sin control de versiones: el archivo en el equipo es la única fuente de verdad. Como red de seguridad, copias de solo lectura del archivo al abrirlo, descargables desde el navegador (§12).
 - Corrección ortográfica discreta, activada por defecto.
 - Contrastes suaves y gran comodidad visual.
 - Nada debe interrumpir al usuario mientras está escribiendo.
@@ -293,11 +293,21 @@ Folio → archivo local .md → carpeta sincronizada → Google Drive
 
 La única concesión a este escenario es la detección de conflictos de §9.4.
 
-## 12. Sin control de versiones
+## 12. Sin control de versiones; copias de seguridad de apertura
 
-Folio **no mantiene versiones, snapshots ni historial** del documento. El `.md` del equipo es la única fuente de verdad; si el usuario quiere historial, lo obtiene de su sistema de sincronización (Drive, Dropbox, iCloud, Time Machine, git…).
+Folio **no mantiene control de versiones**: no hay diferencias, ni navegación entre versiones, ni restauración. El `.md` del equipo es la única fuente de verdad; si el usuario quiere un historial real, lo obtiene de su sistema de sincronización (Drive, Dropbox, iCloud, Time Machine, git…).
 
-La única copia auxiliar es el **borrador vivo** (§9.5), que no es un historial: contiene exclusivamente el último estado del editor y solo sirve para no perder lo escrito si el navegador se cierra antes de que el autosave termine. Se descarta en cuanto el archivo está guardado.
+Hay dos copias auxiliares, ambas en IndexedDB y ninguna de las dos escribe jamás sobre el `.md`:
+
+- El **borrador vivo** (§9.5), que no es un historial: contiene exclusivamente el último estado del editor y solo sirve para no perder lo escrito si el navegador se cierra antes de que el autosave termine. Se descarta en cuanto el archivo está guardado.
+- Las **copias de seguridad de apertura** (`src/persistence/backups.ts`, store `backups`), pensadas para el caso «ayer borré tres capítulos sin darme cuenta y el autosave ya lo escribió»: al abrir una novela con escritura directa, Folio guarda el archivo **tal y como se leyó del disco** (bloques de notas y diccionario incluidos, antes de cualquier recuperación de borrador), junto con el momento de la apertura y el número de palabras de la novela (mismo criterio que el contador del editor). Reglas:
+  - Como mucho **una copia por día** (día local): la de la primera apertura. Reabrir el mismo día no guarda nada.
+  - **Sin duplicados**: si el contenido coincide exactamente con cualquiera de las copias ya guardadas (no solo la última), no se guarda. Así las copias son siempre estados distintos y abrir el archivo diez días seguidos sin escribir no desplaza a las copias útiles.
+  - Se conservan las **10 más recientes** por novela (`BACKUP_KEEP`); las demás se borran al guardar una nueva.
+  - Las copias se ligan a la novela por su `novelId` (§22), así que sobreviven a renombrar el archivo. En modo degradado la identidad del archivo no es estable y no se guardan copias; el comando no aparece.
+  - Guardar la copia nunca bloquea ni impide la apertura: si IndexedDB falla, simplemente no hay copia de ese día.
+
+  Se consultan desde la paleta con **«Historial»**: un panel con una fila por copia (fecha y hora de la apertura, palabras y un botón **Descargar**) y «Cerrar» (también `Esc`). Descargar guarda la copia como un `.md` nuevo mediante `showSaveFilePicker`, con nombre sugerido `<novela> — YYYY-MM-DD.md` (descarga directa si el navegador no lo permite). **A propósito no existe «restaurar»**: una copia nunca vuelve al editor ni al archivo desde el navegador; si el usuario quiere recuperar algo, descarga la copia y la abre como cualquier otro `.md`. Es la única vía, y es intencionada: elimina cualquier posibilidad de que una copia machaque el archivo real.
 
 ## 13. Corrector ortográfico
 
@@ -440,7 +450,7 @@ Toda la funcionalidad oculta se alcanza desde **un único punto**: la paleta de 
 | Guardar ahora (fuerza `flush`) | `Cmd/Ctrl+S` |
 | Cerrar overlay | `Esc` |
 
-Orden de la paleta: Capítulos, Notas, Pantalla completa, tema, texto centrado, y después el resto (exportar TXT, asistencia literaria, corrector, añadir palabra, Diccionario). Acciones solo en paleta: exportar TXT, notas, activar/desactivar corrector, texto centrado, asistencia literaria, diccionario. Para cambiar de novela se vuelve a la pantalla inicial recargando la página; no hay comando. Solo por atajo (no aparecen en la paleta): guardar ahora, tamaño del texto.
+Orden de la paleta: Notas, Capítulos, Pantalla completa, tema, texto centrado, asistencia literaria, corrector, añadir palabra (solo con una palabra bajo el cursor), Diccionario, Historial, Exportar. Acciones solo en paleta: exportar TXT, notas, historial, activar/desactivar corrector, texto centrado, asistencia literaria, diccionario. Para cambiar de novela se vuelve a la pantalla inicial recargando la página; no hay comando. Solo por atajo (no aparecen en la paleta): guardar ahora, tamaño del texto.
 
 `Cmd/Ctrl+S` existe porque el reflejo del usuario es pulsarlo; no debe abrir el diálogo del navegador.
 
@@ -477,13 +487,14 @@ El archivo `.md` permanece limpio, salvo los bloques de notas y diccionario (§1
 | `folio.spell.enabled` | `true` \| `false` |
 | `folio.typography.es` | `true` \| `false` |
 
-### IndexedDB `folio` (v2)
+### IndexedDB `folio` (v3)
 
 | Store | Clave | Contenido |
 |---|---|---|
 | `novels` | `id` | `{ id, handle, name, lastOpened }` |
 | `drafts` | `novelId` | `{ novelId, ts, text }` |
 | `dictionary` | `lang` (siempre `es`) | `{ lang, words: string[] }` — heredado; solo se lee para migrar al `.md` (§14.2) |
+| `backups` | `[novelId, day]` (índice `novelId`) | `{ novelId, day: 'YYYY-MM-DD', ts, text, words }` — copias de seguridad de apertura (§12) |
 
 Acceso mediante la librería `idb` (wrapper de promesas, ~1 KB).
 
@@ -531,6 +542,7 @@ src/
     db.ts                 apertura y migraciones IndexedDB
     autosave.ts           máquina de estados
     liveDraft.ts
+    backups.ts            copias de seguridad de apertura (una por día, sin duplicados, las 10 últimas)
     dictionary.ts         diccionario personal en memoria + migración desde IndexedDB
     folioBlocks.ts        bloques <!-- folio:notas --> y <!-- folio:diccionario --> al final del .md
     prefs.ts
@@ -544,6 +556,7 @@ src/
     Notice.ts             mensajes de una línea, autodescartables
     DictionaryManager.ts
     Notes.ts              bloc de notas de la novela
+    History.ts            historial de copias de seguridad: lista y descarga, nunca restaura
   export/
     toTxt.ts
   workers/
@@ -563,7 +576,7 @@ public/
 1. Script inline en `index.html` aplica `data-theme` desde `localStorage`.
 2. `main.ts` detecta el adapter y abre IndexedDB.
 3. Si `launchQueue` entrega un archivo (PWA), se abre directamente. Si no, se muestra `StartScreen`.
-4. Al abrir: leer → normalizar → comprobar borrador vivo → adquirir lock → crear editor → iniciar autosave y live draft.
+4. Al abrir: leer → normalizar → adquirir lock → guardar copia de seguridad de apertura → comprobar borrador vivo → crear editor → iniciar autosave y live draft.
 
 ## 24. Detalles de implementación de las extensiones
 
@@ -644,7 +657,7 @@ Estimación total fases 0–5: **4–5 semanas** a tiempo completo. Producto uti
 
 ## 29. Fuera de alcance (por ahora)
 
-Control de versiones o historial de cualquier tipo, exportación DOCX/EPUB, metas diarias y gráficas, sinónimos, modo lectura, colaboración, sincronización propia, soporte móvil, cualquier integración con servicios externos.
+Control de versiones (diferencias, navegación entre versiones, restauración desde el navegador; las copias de apertura de §12 son solo descargables), exportación DOCX/EPUB, metas diarias y gráficas, sinónimos, modo lectura, colaboración, sincronización propia, soporte móvil, cualquier integración con servicios externos.
 
 ## Idea rectora de Folio
 
