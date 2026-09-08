@@ -1,0 +1,21 @@
+specs.md
+  s_d26dac1d204d5c::t_0dd961bf59bb88 18,296,298,300-310,453,490,497,545,559,579,660
+src/app/session.ts
+  s_d26dac1d204d5c::t_8176cad45ebaee 4,12,31,109-113,356-379,440-511
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3d19ca7a5f04c4eaa651e674526421641cd4ebab",
+  "prompts": {},
+  "sessions": {
+    "s_d26dac1d204d5c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f7d7543a6ffeH2pgaZfeMrITin",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "jfraguio <jfraguio@gmail.com>"
+    }
+  }
+}
