@@ -38,19 +38,27 @@ export function openNotes({ notes, onChange, status, onStatusClick, restoreFocus
     },
   });
   const tabs = el('div', { class: 'notes__tabs', attrs: { role: 'tablist' } });
+  // El CSS reparte el ancho de la cabecera entre las pestañas a partir de este número.
+  tabs.style.setProperty('--note-tabs', String(NOTE_TABS));
 
   const renderTabs = () => {
     clear(tabs);
     for (let k = 0; k < NOTE_TABS; k++) {
+      const text = notes[k] ?? '';
+      const title = tabTitle(text, k);
       tabs.appendChild(
         el(
           'button',
           {
             class: k === active ? 'notes__tab notes__tab--active' : 'notes__tab',
-            attrs: { role: 'tab', 'aria-selected': String(k === active) },
+            attrs: {
+              role: 'tab',
+              'aria-selected': String(k === active),
+              title: text.trim() ? `Nota ${k + 1}: ${title}` : `Nota ${k + 1}`,
+            },
             on: { click: () => show(k) },
           },
-          tabTitle(notes[k] ?? '', k),
+          title,
         ),
       );
     }

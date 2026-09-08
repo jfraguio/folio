@@ -80,20 +80,34 @@ describe('bloques de Folio en el .md (notas y diccionario)', () => {
     expect(splitDocument(joinDocument(doc(novel, notes)))).toEqual(doc(novel, notes));
   });
 
-  it('seis espacios de notas dentro del mismo bloque; los vacíos no se escriben', () => {
-    expect(NOTE_TABS).toBe(6);
-    const md = joinDocument(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos\n', '', '', 'Seis')));
-    expect(md).toContain('\n\n[folio:nota 1]\nUno\n\n[folio:nota 3]\nTres\n\ncon párrafos\n\n[folio:nota 6]\nSeis\n-->');
+  it('diez espacios de notas dentro del mismo bloque; los vacíos no se escriben', () => {
+    expect(NOTE_TABS).toBe(10);
+    const md = joinDocument(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos\n', '', '', 'Seis', '', '', '', 'Diez')));
+    expect(md).toContain('\n\n[folio:nota 1]\nUno\n\n[folio:nota 3]\nTres\n\ncon párrafos\n\n[folio:nota 6]\nSeis\n[folio:nota 10]\nDiez\n-->');
     expect(md).not.toContain('[folio:nota 2]');
     expect(md).not.toContain('[folio:nota 4]');
     expect(md).not.toContain('[folio:nota 5]');
-    expect(splitDocument(md)).toEqual(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos\n', '', '', 'Seis')));
+    expect(md).not.toContain('[folio:nota 7]');
+    expect(md).not.toContain('[folio:nota 9]');
+    expect(splitDocument(md)).toEqual(doc(novel, tabs('Uno\n', '', 'Tres\n\ncon párrafos\n', '', '', 'Seis', '', '', '', 'Diez')));
     // un marcador fuera de rango se ignora
-    const over = 'Hola\n\n<!-- folio:notas\nd\n\n[folio:nota 7]\nFuera\n-->\n';
+    const over = 'Hola\n\n<!-- folio:notas\nd\n\n[folio:nota 11]\nFuera\n-->\n';
     expect(splitDocument(over).notes).toEqual(tabs());
     // notas antiguas sin marcador de espacio: todo al primero
     const legacy = 'Hola\n\n<!-- folio:notas\nd\n\nTexto suelto\n-->\n';
     expect(splitDocument(legacy).notes).toEqual(tabs('Texto suelto'));
+  });
+
+  it('un archivo guardado con seis espacios se abre con diez (los nuevos vacíos) y se reescribe igual', () => {
+    const six = `${novel}\n<!-- folio:notas\nd\n\n[folio:nota 1]\nUno\n[folio:nota 6]\nSeis\n-->\n`;
+    const parsed = splitDocument(six);
+    expect(parsed.notes).toHaveLength(NOTE_TABS);
+    expect(parsed.notes).toEqual(tabs('Uno', '', '', '', '', 'Seis'));
+    // al volver a guardar no aparecen marcadores para los espacios vacíos añadidos
+    const md = joinDocument(parsed);
+    expect(md).toContain('[folio:nota 1]\nUno\n[folio:nota 6]\nSeis\n-->');
+    expect(md).not.toMatch(/\[folio:nota (7|8|9|10)\]/);
+    expect(splitDocument(md).notes).toEqual(parsed.notes);
   });
 
   it('las notas pueden contener "-->" sin romper el comentario', () => {

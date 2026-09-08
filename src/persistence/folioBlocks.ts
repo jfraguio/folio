@@ -36,7 +36,7 @@ const NOTES = {
 };
 
 /** Espacios de notas (pestañas) dentro del bloque. */
-export const NOTE_TABS = 6;
+export const NOTE_TABS = 10;
 const TAB_RE = /(^|\n)\[folio:nota (\d+)\]\n/g;
 
 const DICTIONARY = {

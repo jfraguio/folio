@@ -279,7 +279,9 @@ check('menú sin exportar diccionario y con "Exportar"', !finalItems.some((l) =>
 await page.click('.panel__item:has-text("Notas")');
 await page.waitForSelector('.notes__text');
 const tabsBefore = await page.$$eval('.notes__tab', (els) => els.map((e) => e.textContent));
-check('notas: tres pestañas numeradas al empezar', JSON.stringify(tabsBefore) === '["1","2","3"]', JSON.stringify(tabsBefore));
+check('notas: diez pestañas numeradas al empezar', JSON.stringify(tabsBefore) === '["1","2","3","4","5","6","7","8","9","10"]', JSON.stringify(tabsBefore));
+const tabsFit = await page.$eval('.notes__tabs', (e) => e.scrollWidth <= e.clientWidth + 1);
+check('notas: las diez pestañas caben en la cabecera sin desbordar', tabsFit);
 check('notas: punto de estado a la izquierda de Cerrar', (await page.$('.panel__actions .status-dot + .btn')) !== null);
 await page.click('.notes__tab:nth-child(2)');
 await page.type('.notes__text', 'Escaleta del segundo acto');
@@ -289,7 +291,7 @@ await page.waitForFunction(() => document.querySelector('.panel__actions .status
 const dotSaved = await page.$eval('.panel__actions .status-dot', (e) => e.dataset.state);
 check('notas: el punto pasa a guardado', dotSaved === 'saved', dotSaved);
 const tabsAfter = await page.$$eval('.notes__tab', (els) => els.map((e) => e.textContent));
-check('notas: la pestaña toma la primera palabra', JSON.stringify(tabsAfter) === '["1","Escaleta","3"]', JSON.stringify(tabsAfter));
+check('notas: la pestaña toma la primera palabra', JSON.stringify(tabsAfter) === '["1","Escaleta","3","4","5","6","7","8","9","10"]', JSON.stringify(tabsAfter));
 const savedFile = await page.evaluate(() => Object.values(window.__files).map((f) => f.text).find((t) => t.includes('folio:notas')) ?? '');
 check('notas: guardadas en el .md dentro de folio:notas, fuera del texto', savedFile.includes('<!-- folio:notas') && savedFile.includes('[folio:nota 2]\nEscaleta del segundo acto') && savedFile.indexOf('folio:notas') > savedFile.indexOf('Nadie esperaba'), savedFile.slice(-160).replace(/\n/g, '⏎'));
 check('notas: el editor no muestra el bloque', !(await page.textContent('.cm-content')).includes('folio:notas'));

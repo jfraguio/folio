@@ -210,15 +210,37 @@
   gap: 1.2rem;
 }
 
+.notes__header > span {
+  flex: none;
+}
+
+/*
+ * Las pestañas ocupan el ancho que deja «Notas» y se reparten sin desbordar:
+ * cada una puede medir como mucho 1/N del espacio (N = --note-tabs, que fija Notes.ts),
+ * así entran siempre todas y los títulos largos se recortan con puntos suspensivos.
+ * El rem sigue al tamaño de texto del usuario, por eso el hueco y el padding se acotan
+ * también en vw: en pantallas estrechas se encogen antes que desbordar.
+ */
 .notes__tabs {
+  --note-tabs: 10;
+  --note-tab-gap: min(0.25rem, 0.8vw);
   display: flex;
-  gap: 0.25rem;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: var(--note-tab-gap);
 }
 
 .notes__tab {
+  --note-tab-max: calc((100% - (var(--note-tabs) - 1) * var(--note-tab-gap)) / var(--note-tabs));
+  flex: 0 1 auto;
+  min-width: min(1.7rem, var(--note-tab-max));
+  max-width: var(--note-tab-max);
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.72rem;
-  min-width: 1.7rem;
-  padding: 0.1rem 0.45rem;
+  padding: 0.1rem min(0.45rem, 1.2vw);
   border: 1px solid transparent;
   border-radius: 999px;
   color: var(--fg-dim);
