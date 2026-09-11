@@ -54,45 +54,6 @@
   background: var(--sel) !important;
 }
 
-/* ---------- Markdown estilizado ---------- */
-
-.cm-md-heading1 {
-  font-weight: 700;
-  font-size: 1.15em;
-}
-
-.cm-md-heading2 {
-  font-weight: 700;
-}
-
-.cm-md-heading3 {
-  font-weight: 700;
-  font-style: italic;
-}
-
-.cm-md-mark {
-  color: var(--fg-faint);
-  font-weight: 400;
-}
-
-.cm-md-emphasis {
-  font-style: italic;
-}
-
-.cm-md-strong {
-  font-weight: 700;
-}
-
-.cm-md-hr {
-  color: var(--fg-faint);
-  text-align: center;
-  letter-spacing: 0.6em;
-}
-
-.cm-md-heading-line {
-  padding-top: 1.6em;
-}
-
 /* ---------- Ortografía ---------- */
 
 .cm-misspelled {
@@ -112,4 +73,13 @@
 
 .cm-link:hover {
   text-decoration-color: var(--fg);
+}
+
+/* ---------- TO-DOs resueltos (líneas que empiezan por --) ---------- */
+
+.cm-done {
+  text-decoration: line-through;
+  text-decoration-color: var(--fg);
+  text-decoration-thickness: 1px;
+  color: var(--fg-dim);
 }

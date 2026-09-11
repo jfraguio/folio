@@ -126,7 +126,7 @@ input:focus-visible {
 
 .status-dot[data-state='dirty']::after,
 .status-dot[data-state='saving']::after {
-  opacity: 0.4;
+  opacity: var(--chrome-opacity-hover); /* siempre con el contraste fuerte */
 }
 
 .status-dot[data-state='error']::after,
@@ -136,7 +136,7 @@ input:focus-visible {
 }
 
 .status-dot[data-state='degraded']::after {
-  opacity: 0.4;
+  opacity: var(--chrome-opacity-hover);
 }
 
 .status-dot__tip {
@@ -176,6 +176,23 @@ input:focus-visible {
   z-index: 5;
 }
 
+/* Contador de TO-DOs resueltos, en rojo, a la izquierda de la marca. */
+.done-count {
+  position: fixed;
+  top: 1.1rem;
+  right: 4.2rem; /* a la izquierda de la marca «TO-DO» */
+  margin: 0;
+  height: 22px;
+  line-height: 22px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--misspell);
+  opacity: var(--chrome-opacity-hover);
+  user-select: none;
+  z-index: 5;
+}
+
 /* ---------- Botón de menú ---------- */
 
 /* Va dentro de .corner-right, a la derecha del todo, junto al punto de estado. */
@@ -186,7 +203,7 @@ input:focus-visible {
   place-items: center;
   border-radius: 4px;
   color: var(--fg-dim);
-  opacity: var(--chrome-opacity);
+  opacity: var(--chrome-opacity-hover); /* siempre con el contraste fuerte */
   transition: opacity var(--ease);
 }
 

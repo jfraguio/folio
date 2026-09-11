@@ -52,8 +52,15 @@ Principios fundamentales (heredados de Folio):
 - ❌ Asistencia literaria (tipografía española, sustituciones al teclear).
 - ❌ Exportar a TXT.
 - ❌ Contador de palabras.
-- ❌ Focus mode por párrafo (atenuado del resto del texto). *Decisión de producto: ver §10.3 — puede reevaluarse, pero la implementación inicial no lo incluye.*
+- ❌ Focus mode por párrafo (atenuado del resto del texto).
+- ❌ **Interpretación de Markdown**: el texto se muestra siempre como texto plano, sin estilizar `**negrita**`, `#`, listas, etc. (Se quitó `@codemirror/lang-markdown`.)
 - ❌ Asistente de creación de «nueva novela»: to-do trabaja con **un único archivo** `.md` por defecto (ver §4).
+
+### Funcionalidad propia de to-do (no heredada de Folio)
+
+- **TO-DOs resueltos**: una línea que empieza por `--` se muestra **tachada entera** y atenuada (`.cm-done`). El documento sigue siendo texto plano; es solo decoración.
+- **Contador de resueltos**: a la izquierda de la marca «TO-DO», en rojo (`--misspell`), cuenta las líneas `--…` (resueltas) de la **tab abierta**. Se oculta si no hay ninguna.
+- **Enlaces clicables**: las URLs (`https://…`, `www.…`) se subrayan y se abren en pestaña nueva con `⌘/Ctrl+clic`. El corrector las ignora.
 
 ---
 

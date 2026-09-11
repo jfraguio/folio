@@ -4,6 +4,7 @@ import { FsAccessAdapter } from '../fs/FsAccessAdapter';
 import { download } from '../fs/FallbackAdapter';
 import { createEditor } from '../editor/createEditor';
 import { spellcheck, spellCompartment, wordAt } from '../editor/spellcheck';
+import { countDone } from '../editor/strikethrough';
 import { Autosave } from '../persistence/autosave';
 import { LiveDraft } from '../persistence/liveDraft';
 import { saveOpeningBackup } from '../persistence/backups';
@@ -174,6 +175,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           if (!u.docChanged) return;
           tabs[active] = view.state.doc.toString();
           tabBar.render();
+          refreshDone();
           markChanged();
         }),
       ],
@@ -194,6 +196,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         selection: { anchor: (tabs[i] ?? '').length },
       });
       tabBar.setActive(i);
+      refreshDone();
       view.focus();
     }
 
@@ -253,6 +256,19 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       );
       disposers.push(() => brand.removeAttribute('title'));
     }
+
+    // Contador de TO-DOs resueltos (líneas tachadas) de la tab abierta, en rojo junto a la marca.
+    const doneCount = brand
+      ? el('span', { class: 'done-count', attrs: { 'aria-label': 'TO-DOs resueltos' } })
+      : null;
+    if (brand && doneCount) brand.before(doneCount);
+    if (doneCount) disposers.push(() => doneCount.remove());
+    const refreshDone = () => {
+      if (!doneCount) return;
+      const n = countDone(view.state.doc.toString());
+      doneCount.textContent = n > 0 ? String(n) : '';
+    };
+    refreshDone();
 
     // 8. Corrector.
     const loadSpell = async () => {
@@ -377,6 +393,8 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         id: 'dictionary.manage',
         label: 'Diccionario',
         keywords: 'palabras ortografía',
+        // Solo tiene sentido con el corrector activado.
+        when: () => prefs.get('spellEnabled'),
         run: () => openDictionaryManager(dictionary, reloadSpell, focusEditor),
       },
       {

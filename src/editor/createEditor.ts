@@ -1,10 +1,9 @@
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, drawSelection, highlightSpecialChars, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { markdown } from '@codemirror/lang-markdown';
-import { todoTheme } from './theme';
 import { spellCompartment } from './spellcheck';
 import { links } from './links';
+import { strikethrough } from './strikethrough';
 
 export interface EditorOptions {
   parent: HTMLElement;
@@ -22,9 +21,9 @@ export function createEditor(o: EditorOptions): EditorView {
       drawSelection(),
       highlightSpecialChars(),
       EditorView.lineWrapping,
-      markdown(),
-      todoTheme(),
+      // Sin interpretación de Markdown: el texto se muestra tal cual (plano).
       links(),
+      strikethrough(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
       spellCompartment.of(o.spell ?? []),
       ...(o.extra ?? []),

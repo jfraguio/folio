@@ -1,6 +1,5 @@
 import { Compartment, RangeSetBuilder, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
-import { syntaxTree } from '@codemirror/language';
 import type { SpellService } from '../spell/SpellService';
 import type { PersonalDictionary } from '../persistence/dictionary';
 
@@ -89,8 +88,7 @@ export function spellcheck(deps: SpellDeps) {
         const cursor = state.selection.main.head;
         const cursorWord = state.selection.main.empty ? wordAt(view, cursor) : null;
 
-        // Rangos visibles + margen, evitando bloques de código y URLs.
-        const tree = syntaxTree(state);
+        // Rangos visibles + margen, evitando URLs.
         const tokens: { from: number; to: number; word: string }[] = [];
         const margin = 2000;
         for (const r of view.visibleRanges) {
@@ -108,8 +106,6 @@ export function spellcheck(deps: SpellDeps) {
             if (cursorWord && wf === cursorWord.from) continue;
             if (shouldSkip(m[0], deps.dictionary)) continue;
             if (skip.some((s) => wf >= s.from && wt <= s.to)) continue;
-            const node = tree.resolveInner(wf, 1);
-            if (node.name === 'FencedCode' || node.name === 'CodeBlock' || node.name === 'InlineCode') continue;
             tokens.push({ from: wf, to: wt, word: m[0] });
           }
         }
