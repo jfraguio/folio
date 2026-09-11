@@ -16,6 +16,7 @@ const DONE_RE = /^[ \t]*--(?!-)/;
 const HEADING_RE = /^[ \t]*#/;
 
 const doneLine = Decoration.line({ class: 'cm-done' });
+/** El título es una decoración de línea: el fondo cubre toda la línea (.cm-line), a todo lo ancho. */
 const headingLine = Decoration.line({ class: 'cm-heading' });
 
 /** Cuenta las líneas resueltas (las que empiezan por "--") de un texto. */

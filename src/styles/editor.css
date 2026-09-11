@@ -87,5 +87,7 @@
 /* ---------- Títulos (líneas que empiezan por #) ---------- */
 
 .cm-heading {
-  color: var(--misspell);
+  /* Fondo contrastado a todo lo ancho de la línea (.cm-line), hasta el final de la pantalla.
+     El texto conserva el color normal (sin rojo). */
+  background: var(--heading-bg);
 }

@@ -39,6 +39,8 @@
   --overlay-bg: rgba(245, 244, 240, 0.92);
   --panel-bg: #fbfaf7;
   --panel-border: #e3e1db;
+  /* Fondo de las líneas de título: más oscuro que el fondo (modo claro), bien contrastado. */
+  --heading-bg: #e4e1da;
   /* Opacidad de los elementos de las esquinas (marca, menú). */
   --chrome-opacity: 0.35;
   --chrome-opacity-hover: 0.85;
@@ -61,6 +63,8 @@
   --overlay-bg: rgba(17, 17, 17, 0.92);
   --panel-bg: #181817;
   --panel-border: #2a2927;
+  /* Fondo de las líneas de título: más claro que el fondo (modo oscuro), bien contrastado. */
+  --heading-bg: #232321;
   --chrome-opacity: 0.85;
   --chrome-opacity-hover: 1;
 }
