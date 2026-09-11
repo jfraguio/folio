@@ -9,8 +9,9 @@ import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate
  * se muestra en el rojo habitual (el de las palabras erróneas).
  */
 
-/** Línea resuelta: "--" tras espacios/tabs opcionales, delante de la primera palabra. */
-const DONE_RE = /^[ \t]*--/;
+/** Línea resuelta: "--" tras espacios/tabs opcionales, delante de la primera palabra.
+ *  No se tachan las que tienen más de dos guiones ("---", "-------": separadores). */
+const DONE_RE = /^[ \t]*--(?!-)/;
 /** Línea de título: "#" tras espacios/tabs opcionales. */
 const HEADING_RE = /^[ \t]*#/;
 
