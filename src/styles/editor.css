@@ -1,0 +1,115 @@
+.editor-root {
+  height: 100%;
+  overflow: hidden;
+}
+
+.cm-editor {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  /* Mismo tamaño que las notas de Folio (0.8rem), no el cuerpo grande de novela. */
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-editor .cm-scroller {
+  font-family: inherit;
+  line-height: inherit;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.cm-editor .cm-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.cm-editor .cm-content {
+  /* Aprovecha todo el ancho con un padding horizontal pequeño, como el textarea de notas.
+     El padding superior deja libre la franja fija de la barra de tabs (~2.9rem). */
+  max-width: none;
+  margin: 0;
+  padding: 3.4rem 1rem 60vh;
+  caret-color: var(--fg);
+  color: var(--fg);
+  transition: color var(--ease);
+}
+
+.cm-editor .cm-line {
+  padding: 0;
+  transition: color var(--ease);
+}
+
+.cm-editor .cm-cursor, .cm-editor .cm-dropCursor {
+  border-left: 2px solid var(--fg);
+}
+
+.cm-editor .cm-selectionBackground,
+.cm-editor.cm-focused .cm-selectionBackground,
+.cm-editor .cm-content ::selection {
+  background: var(--sel) !important;
+}
+
+/* ---------- Markdown estilizado ---------- */
+
+.cm-md-heading1 {
+  font-weight: 700;
+  font-size: 1.15em;
+}
+
+.cm-md-heading2 {
+  font-weight: 700;
+}
+
+.cm-md-heading3 {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.cm-md-mark {
+  color: var(--fg-faint);
+  font-weight: 400;
+}
+
+.cm-md-emphasis {
+  font-style: italic;
+}
+
+.cm-md-strong {
+  font-weight: 700;
+}
+
+.cm-md-hr {
+  color: var(--fg-faint);
+  text-align: center;
+  letter-spacing: 0.6em;
+}
+
+.cm-md-heading-line {
+  padding-top: 1.6em;
+}
+
+/* ---------- Ortografía ---------- */
+
+.cm-misspelled {
+  color: var(--misspell);
+}
+
+/* ---------- Enlaces ---------- */
+
+.cm-link {
+  /* Hereda el color del texto (no el rojo del corrector si lo envuelve). */
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--fg-faint);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.cm-link:hover {
+  text-decoration-color: var(--fg);
+}

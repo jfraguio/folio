@@ -1,0 +1,57 @@
+/*
+ * Barra de tabs superior: las 10 tabs se reparten el ancho disponible sin desbordar.
+ * Cada tab mide como mucho 1/N del espacio (N = --tab-count, que fija TabBar.ts),
+ * así entran siempre todas y los títulos largos se recortan con puntos suspensivos.
+ * La barra es discreta por defecto y gana contraste al pasar el ratón.
+ */
+
+.tab-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.9rem; /* cubre el padding superior del contenido */
+  padding: 1.1rem 7rem 0 1.1rem; /* deja hueco a la marca «TO-DO» a la derecha */
+  display: flex;
+  align-items: flex-start;
+  gap: min(0.25rem, 0.8vw);
+  z-index: 5;
+  /* Fondo opaco con el color del tema: el texto no debe verse por debajo al hacer scroll.
+     Sin translucencia: la barra debe tapar por completo (sin stacking por opacity). */
+  background: var(--bg);
+  transition: background-color var(--ease);
+  user-select: none;
+}
+
+.tab-bar:hover,
+.tab-bar:focus-within {
+  opacity: var(--chrome-opacity-hover);
+}
+
+.tab-bar__tab {
+  --tab-max: calc((100% - (var(--tab-count) - 1) * min(0.25rem, 0.8vw)) / var(--tab-count));
+  flex: 0 1 auto;
+  min-width: min(1.7rem, var(--tab-max));
+  max-width: var(--tab-max);
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  line-height: 20px;
+  padding: 0 min(0.45rem, 1.2vw);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--fg-dim);
+  transition: background-color var(--ease), color var(--ease);
+}
+
+.tab-bar__tab:hover {
+  color: var(--fg);
+}
+
+.tab-bar__tab--active {
+  color: var(--fg);
+  border-color: var(--panel-border);
+  background: var(--sel);
+}
