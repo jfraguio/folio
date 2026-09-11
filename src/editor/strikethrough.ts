@@ -2,14 +2,20 @@ import { RangeSetBuilder } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 
 /**
- * TO-DOs resueltos: una línea que empieza por "--" se muestra tachada entera.
- * El documento sigue siendo texto plano; solo es una decoración visual.
+ * TO-DOs resueltos: una línea que empieza por "--" (tras espacios o tabulaciones
+ * opcionales) se muestra tachada entera. El documento sigue siendo texto plano.
+ *
+ * Títulos: una línea que empieza por "#" (tras espacios o tabulaciones opcionales)
+ * se muestra en el rojo habitual (el de las palabras erróneas).
  */
 
-/** Línea resuelta: empieza por "--" (con espacios opcionales delante no; es literal "--..."). */
-const DONE_RE = /^--/;
+/** Línea resuelta: "--" tras espacios/tabs opcionales, delante de la primera palabra. */
+const DONE_RE = /^[ \t]*--/;
+/** Línea de título: "#" tras espacios/tabs opcionales. */
+const HEADING_RE = /^[ \t]*#/;
 
 const doneLine = Decoration.line({ class: 'cm-done' });
+const headingLine = Decoration.line({ class: 'cm-heading' });
 
 /** Cuenta las líneas resueltas (las que empiezan por "--") de un texto. */
 export function countDone(text: string): number {
@@ -41,7 +47,9 @@ function build(view: EditorView): DecorationSet {
     let pos = from;
     while (pos <= to) {
       const line = view.state.doc.lineAt(pos);
+      // Una línea "--" tiene prioridad sobre una "#" si ambas pudieran coincidir.
       if (DONE_RE.test(line.text)) b.add(line.from, line.from, doneLine);
+      else if (HEADING_RE.test(line.text)) b.add(line.from, line.from, headingLine);
       pos = line.to + 1;
     }
   }

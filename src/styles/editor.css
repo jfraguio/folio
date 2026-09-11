@@ -83,3 +83,9 @@
   text-decoration-thickness: 1px;
   color: var(--fg-dim);
 }
+
+/* ---------- Títulos (líneas que empiezan por #) ---------- */
+
+.cm-heading {
+  color: var(--misspell);
+}

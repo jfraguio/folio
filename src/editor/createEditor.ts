@@ -1,6 +1,6 @@
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, drawSelection, highlightSpecialChars, keymap } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, insertTab } from '@codemirror/commands';
 import { spellCompartment } from './spellcheck';
 import { links } from './links';
 import { strikethrough } from './strikethrough';
@@ -24,7 +24,8 @@ export function createEditor(o: EditorOptions): EditorView {
       // Sin interpretación de Markdown: el texto se muestra tal cual (plano).
       links(),
       strikethrough(),
-      keymap.of([...defaultKeymap, ...historyKeymap]),
+      EditorState.tabSize.of(4),
+      keymap.of([{ key: 'Tab', run: insertTab }, ...defaultKeymap, ...historyKeymap]),
       spellCompartment.of(o.spell ?? []),
       ...(o.extra ?? []),
     ],
