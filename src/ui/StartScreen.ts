@@ -18,13 +18,13 @@ export function renderStartScreen(root: HTMLElement, o: StartScreenOptions): voi
       el(
         'div',
         { class: 'start__actions' },
-        el('button', { class: 'start__action', on: { click: o.onOpen } }, 'Abrir'),
-        el('button', { class: 'start__action', on: { click: o.onCreate } }, 'Nuevo'),
+        el('button', { class: 'start__action', on: { click: o.onOpen } }, 'OPEN'),
+        el('button', { class: 'start__action', on: { click: o.onCreate } }, 'NEW'),
         o.last &&
           el(
             'button',
             { class: 'start__action start__action--secondary', on: { click: () => o.onContinue(o.last!) } },
-            `Continuar «${o.last.name.replace(/\.(md|markdown)$/i, '')}»`,
+            `CONTINUE «${o.last.name.replace(/\.(md|markdown)$/i, '')}»`,
           ),
       ),
       o.degraded &&

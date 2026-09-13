@@ -23,11 +23,6 @@
   user-select: none;
 }
 
-.tab-bar:hover,
-.tab-bar:focus-within {
-  opacity: var(--chrome-opacity-hover);
-}
-
 .tab-bar__tab {
   --tab-max: calc((100% - (var(--tab-count) - 1) * min(0.25rem, 0.8vw)) / var(--tab-count));
   flex: 0 1 auto;

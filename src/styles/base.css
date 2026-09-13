@@ -70,7 +70,9 @@ input:focus-visible {
 }
 
 .start__action {
-  font-size: 1.05rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--fg);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
@@ -83,7 +85,7 @@ input:focus-visible {
 
 .start__action--secondary {
   color: var(--fg-dim);
-  font-size: 0.9rem;
+  font-size: 0.75rem;
 }
 
 .start__note {
