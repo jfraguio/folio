@@ -1,0 +1,23 @@
+specs.md
+  s_a4d0c0238a0a35::t_d3bfa3be398b47 38,43,268,272,279-285,301-312,360-373,375,439,492,521,562-563,565,578
+src/styles/overlays.css
+  s_a4d0c0238a0a35::t_9ee641119055fb 193
+tests/backups.test.ts
+  s_a4d0c0238a0a35::t_2a9d5a16dc7a0c 1-12,26-29,32-39,41-66,69-72,75-79,83-87,90-92,95-180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "8f95644f73eeb05d2b95999811fb007bac41a95e",
+  "prompts": {},
+  "sessions": {
+    "s_a4d0c0238a0a35": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f5a0afd31ffeI3jEBCEYR50pI4",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "franciscojfc <franciscojfc@inditex.com>"
+    }
+  }
+}
