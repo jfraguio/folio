@@ -63,25 +63,55 @@ describe('Autosave', () => {
     expect(a.state).toBe('saved');
   });
 
-  it('detecta conflicto cuando el archivo cambió en el disco y no sobrescribe', async () => {
+  it('si el disco es posterior, aborta la escritura y avisa para recargar; tras accept() sigue guardando', async () => {
     const { io, writes, setDisk } = makeIO();
-    const onConflict = vi.fn();
-    const a = new Autosave({ getText: () => 'x', io, initialMtime: 1000, debounceMs: 10, onConflict });
+    let text = 'local';
+    let a!: Autosave;
+    const onNewerOnDisk = vi.fn(async (m: number) => {
+      // Quien nos usa relee el disco, lo vuelca en el editor y lo acepta como vigente.
+      text = 'del disco';
+      a.accept(m, text);
+    });
+    a = new Autosave({ getText: () => text, io, initialMtime: 1000, debounceMs: 10, onNewerOnDisk });
 
-    setDisk(5000); // algo modificó el archivo por fuera
+    setDisk(5000); // alguien guardó después que nosotros
     a.markDirty();
     await vi.advanceTimersByTimeAsync(20);
 
-    expect(writes).toEqual([]);
-    expect(a.state).toBe('conflict');
-    expect(onConflict).toHaveBeenCalledWith(5000);
+    expect(writes).toEqual([]); // lo local se descarta, no se escribe
+    expect(onNewerOnDisk).toHaveBeenCalledWith(5000);
+    expect(a.state).toBe('saved');
+    expect(a.lastKnownMtime).toBe(5000);
 
-    a.markDirty(); // en conflicto no se escribe
+    // A partir de ahí el autosave funciona con normalidad sobre la versión cargada.
+    text = 'del disco + edición';
+    a.markDirty();
+    await vi.advanceTimersByTimeAsync(20);
+    expect(writes).toEqual(['del disco + edición']);
+    expect(a.state).toBe('saved');
+  });
+
+  it('si onNewerOnDisk no acepta nada, vuelve a dirty en vez de quedarse colgado en saving', async () => {
+    const { io, writes, setDisk } = makeIO();
+    const onNewerOnDisk = vi.fn();
+    const a = new Autosave({ getText: () => 'x', io, initialMtime: 1000, debounceMs: 10, onNewerOnDisk });
+    setDisk(5000);
+    a.markDirty();
     await vi.advanceTimersByTimeAsync(20);
     expect(writes).toEqual([]);
+    expect(onNewerOnDisk).toHaveBeenCalledTimes(1);
+    expect(a.state).toBe('dirty');
+  });
 
-    await a.overwrite(); // el usuario decide conservar la suya
+  it('si el disco es anterior (aunque distinto), lo local prevalece y se escribe', async () => {
+    const { io, writes, setDisk } = makeIO();
+    const onNewerOnDisk = vi.fn();
+    const a = new Autosave({ getText: () => 'x', io, initialMtime: 1000, debounceMs: 10, onNewerOnDisk });
+    setDisk(500); // p. ej. una restauración con fecha antigua
+    a.markDirty();
+    await vi.advanceTimersByTimeAsync(20);
     expect(writes).toEqual(['x']);
+    expect(onNewerOnDisk).not.toHaveBeenCalled();
     expect(a.state).toBe('saved');
   });
 

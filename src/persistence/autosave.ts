@@ -1,4 +1,4 @@
-export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
+export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 
 export type SaveErrorKind = 'permission' | 'not-found' | 'unsupported' | 'unknown';
 
@@ -17,7 +17,11 @@ export interface AutosaveOptions {
   periodicMs?: number;
   maxRetryMs?: number;
   onState?: (state: SaveState, info: { error?: SaveErrorKind; lastSaved?: number }) => void;
-  onConflict?: (diskMtime: number) => void;
+  /**
+   * El disco tiene una versión posterior a la conocida: la escritura se ha abortado. Quien nos usa
+   * debe recargar el archivo y llamar a `accept()`; hasta entonces el texto local no se escribe.
+   */
+  onNewerOnDisk?: (diskMtime: number) => void | Promise<void>;
   onError?: (kind: SaveErrorKind, error: unknown) => void;
   now?: () => number;
 }
@@ -37,7 +41,10 @@ export function classifyError(e: unknown): SaveErrorKind {
  *
  * idle → dirty → (debounce) → saving → saved
  *                                   ↘ error (reintento exponencial)
- *                                   ↘ conflict (mtime en disco distinto al conocido)
+ *
+ * Antes de cada escritura se comprueba el mtime del disco: si es posterior al conocido, alguien
+ * escribió después que nosotros y el disco manda; se aborta y se avisa (`onNewerOnDisk`) para que
+ * se recargue. Si es igual o anterior, se escribe: lo local prevalece.
  */
 export class Autosave {
   state: SaveState = 'idle';
@@ -69,7 +76,6 @@ export class Autosave {
   /** Llamar tras cada cambio del documento. */
   markDirty(): void {
     if (this.disposed) return;
-    if (this.state === 'conflict') return; // en conflicto no se escribe; el borrador vivo protege
     if (this.state === 'saving') {
       this.pendingAgain = true;
       return;
@@ -93,19 +99,12 @@ export class Autosave {
       this.pendingAgain = true;
       return;
     }
-    if (this.state === 'conflict') return;
     const text = this.opts.getText();
     if (this.state !== 'error' && text === this.lastSavedText) {
       if (this.state === 'dirty') this.setState('saved');
       return;
     }
     await this.doWrite(text);
-  }
-
-  /** Tras resolver un conflicto conservando la versión local: se sobrescribe sin comprobar el mtime. */
-  async overwrite(): Promise<void> {
-    this.setState('dirty');
-    await this.doWrite(this.opts.getText(), { skipConflictCheck: true });
   }
 
   /** Tras cargar la versión del disco o tras "guardar como": se acepta el mtime dado. */
@@ -136,17 +135,19 @@ export class Autosave {
     this.clearTimer('retry');
   }
 
-  private async doWrite(text: string, o: { skipConflictCheck?: boolean } = {}): Promise<void> {
+  private async doWrite(text: string): Promise<void> {
     if (this.disposed) return;
     this.setState('saving');
     try {
-      if (!o.skipConflictCheck) {
-        const diskMtime = await this.opts.io.mtime();
-        if (diskMtime !== this.lastKnownMtime) {
-          this.setState('conflict');
-          this.opts.onConflict?.(diskMtime);
-          return;
-        }
+      const diskMtime = await this.opts.io.mtime();
+      if (diskMtime > this.lastKnownMtime) {
+        // El disco es más nuevo: se descarta lo local (como mucho, unos segundos de trabajo) y se
+        // recarga. `onNewerOnDisk` debe terminar con `accept()`; si no lo hace, se vuelve a `dirty`
+        // para que el siguiente intento (o el sondeo de cambios externos) lo resuelva.
+        this.pendingAgain = false;
+        await this.opts.onNewerOnDisk?.(diskMtime);
+        if (this.state === 'saving') this.setState('dirty');
+        return;
       }
       const mtime = await this.opts.io.write(text);
       this.lastKnownMtime = mtime;

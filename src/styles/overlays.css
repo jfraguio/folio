@@ -190,7 +190,7 @@
   color: var(--err);
 }
 
-/* ---------- Historial (copias de seguridad de apertura) ---------- */
+/* ---------- Historial (versiones del archivo) ---------- */
 
 .history {
   display: flex;

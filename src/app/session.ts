@@ -6,8 +6,9 @@ import { createEditor } from '../editor/createEditor';
 import { spellcheck, spellCompartment, wordAt } from '../editor/spellcheck';
 import { countDone } from '../editor/strikethrough';
 import { Autosave } from '../persistence/autosave';
+import { FileWatcher } from '../persistence/fileWatcher';
 import { LiveDraft } from '../persistence/liveDraft';
-import { saveOpeningBackup } from '../persistence/backups';
+import { VersionHistory } from '../persistence/backups';
 import { resolveTodoId } from '../persistence/files';
 import { acquireTodoLock } from '../persistence/locks';
 import { PersonalDictionary } from '../persistence/dictionary';
@@ -82,7 +83,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     // Sin respuesta: la otra pestaña está congelada, descartada o colgada. El bloqueo es una
     // salvaguarda, no una barrera: el usuario ya ha pedido editar aquí y se le deja.
     if (result === 'no-response') {
-      notice('La otra pestaña no responde. Se abre aquí; si allí sigue abierto, to-do avisará de cualquier conflicto al guardar.', 8000);
+      notice('La otra pestaña no responde. Se abre aquí; si allí sigue abierto, prevalecerá lo último que se guarde.', 8000);
     }
   }
 
@@ -101,9 +102,13 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
   disposers.push(() => lock.release());
 
   try {
-    // 3. Copia de seguridad de apertura: lo que hay en el disco, antes de cualquier recuperación.
-    // Nunca bloquea la apertura: si IndexedDB falla, simplemente no hay copia de hoy.
-    const backupReady = degraded ? Promise.resolve() : saveOpeningBackup(todoId, diskText).then(() => {}, () => {});
+    // 3. Historial: versión de apertura (lo que hay en el disco, antes de cualquier recuperación) si
+    // hace más de una hora de la última, y una cada hora mientras la sesión siga abierta.
+    // Nunca bloquea la apertura: si IndexedDB falla, simplemente no hay versión.
+    const history = new VersionHistory(todoId, () => getText());
+    disposers.push(() => history.dispose());
+    const backupReady = degraded ? Promise.resolve() : history.saveIfDue(diskText).then(() => {});
+    if (!degraded) history.start();
 
     // 4. Comprobación de borrador vivo (guarda el texto completo, diccionario incluido).
     const liveDraft = new LiveDraft(todoId);
@@ -134,7 +139,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
 
     const statusDot = new StatusDot((state) => {
       if (state === 'error') void commands.run('save.retry');
-      else if (state === 'conflict') showConflict();
       else if (state === 'degraded') void commands.run('export.md');
       else void commands.run('menu');
     });
@@ -158,6 +162,8 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
 
     // 6. Tabs y editor.
     let active = Math.min(Math.max(prefs.get('lastTab'), 0), TAB_COUNT - 1);
+    /** `true` mientras se vuelca en el editor la versión del disco: ese cambio no es del usuario. */
+    let syncingFromDisk = false;
 
     const tabBar = new TabBar({
       tabs,
@@ -176,7 +182,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           tabs[active] = view.state.doc.toString();
           tabBar.render();
           refreshDone();
-          markChanged();
+          if (!syncingFromDisk) markChanged();
         }),
       ],
     });
@@ -228,9 +234,8 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         saveStatus.set(degraded ? 'degraded' : state, info.lastSaved);
         if (state === 'saved') void liveDraft.clear();
       },
-      onConflict: () => {
-        notice('El archivo ha cambiado en el disco. Pulsa el punto de estado para resolverlo.', 6000);
-      },
+      // Alguien guardó después que nosotros: se descarta lo local y se carga lo del disco.
+      onNewerOnDisk: () => reloadFromDisk({ unlessSaving: false }),
       onError: (kind) => {
         if (kind === 'permission') notice('to-do perdió el permiso de escritura. Pulsa el punto de estado para recuperarlo.', 6000);
         else if (kind === 'not-found') notice('El archivo ya no está donde estaba. Pulsa el punto de estado para guardarlo en otro sitio.', 6000);
@@ -294,43 +299,67 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       if (prefs.get('spellEnabled')) void loadSpell().then(rescanSpell);
     };
 
-    // 9. Conflicto.
-    const showConflict = () => {
-      openDialog(
-        [
-          'El archivo ha cambiado en el disco desde la última vez que to-do lo guardó.',
-          '¿Qué versión quieres conservar? La otra se perderá.',
-        ],
-        [
-          {
-            label: 'Cargar la del disco',
-            quiet: true,
-            onClick: async () => {
-              const fresh = await adapter.read(file);
-              const split = splitDocument(fresh.text);
-              tabs.splice(0, tabs.length, ...split.tabs);
-              dictionary.load(split.words);
-              view.dispatch({
-                changes: { from: 0, to: view.state.doc.length, insert: tabs[active] ?? '' },
-                selection: { anchor: 0 },
-              });
-              tabBar.render();
-              reloadSpell();
-              autosave.accept(fresh.mtime, fresh.text);
-              notice('Se ha cargado la versión del disco.');
-            },
-          },
-          {
-            label: 'Conservar la mía',
-            primary: true,
-            onClick: async () => {
-              await autosave.overwrite();
-            },
-          },
-        ],
-        () => view.focus(),
-      );
+    // 9. El disco manda si es más nuevo.
+    //
+    // Política de concurrencia (el archivo vive en una carpeta sincronizada con iCloud Drive y se
+    // edita desde varios ordenadores): no hay diálogo de conflicto. Todo lo que se escribe en local
+    // se guarda; pero si el disco tiene un `lastModified` posterior al de la versión cargada, la
+    // versión del disco sustituye a la local (como mucho se pierden unos segundos de trabajo).
+    // Se detecta en dos puntos: el sondeo de cambios externos (9b) y la propia escritura del
+    // autosave, que comprueba el mtime justo antes de escribir y aborta si el disco es posterior.
+
+    /** Sustituye el documento por lo que hay en el disco, conservando el cursor, y acepta su mtime. */
+    const applyDiskVersion = (fresh: { text: string; mtime: number }) => {
+      const split = splitDocument(fresh.text);
+      const wordsBefore = dictionary.list().join('\n');
+      tabs.splice(0, tabs.length, ...split.tabs);
+      dictionary.load(split.words);
+      const next = tabs[active] ?? '';
+      const head = Math.min(view.state.selection.main.head, next.length);
+      syncingFromDisk = true;
+      try {
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: next },
+          selection: { anchor: head },
+        });
+      } finally {
+        syncingFromDisk = false;
+      }
+      tabBar.render();
+      // Hunspell no permite olvidar palabras: si el diccionario personal cambió, se recarga entero.
+      if (dictionary.list().join('\n') !== wordsBefore) reloadSpell();
+      else rescanSpell();
+      autosave.accept(fresh.mtime, fresh.text);
     };
+
+    /**
+     * Relee el archivo y lo vuelca en el editor. Lo usan el sondeo y el autosave.
+     * Con `unlessSaving`, si durante la lectura arrancó una escritura propia se desiste: esa
+     * escritura hace su propia comprobación de mtime y, si procede, recargará ella.
+     */
+    const reloadFromDisk = async ({ unlessSaving }: { unlessSaving: boolean }) => {
+      const fresh = await adapter.read(file);
+      if (unlessSaving && autosave.state === 'saving') return;
+      applyDiskVersion(fresh);
+      notice('El archivo cambió en otro dispositivo: se ha cargado la versión más reciente.');
+    };
+
+    // 9b. Cambios externos. Cada 10 s, y al recuperar el foco, se compara solo el `lastModified`
+    // del disco con el de la versión cargada (`autosave.lastKnownMtime`, que ya se actualiza con
+    // cada escritura propia). Únicamente si el del disco es posterior se relee y se vuelca.
+    //
+    // La única excepción es una escritura propia en vuelo: recargar en mitad de ella dejaría el
+    // editor con una versión y el disco con otra, y el mtime de nuestra escritura ocultaría la
+    // diferencia. Además esa escritura ya hace su propia comprobación. Se espera al siguiente ciclo.
+    const watcher = new FileWatcher({
+      mtime: () => (fsAdapter ? fsAdapter.mtime(file) : Promise.resolve(autosave.lastKnownMtime)),
+      lastKnown: () => autosave.lastKnownMtime,
+      canReload: () => autosave.state !== 'saving',
+      onChange: () => reloadFromDisk({ unlessSaving: true }),
+      onError: (e) => console.debug('[to-do] no se pudo comprobar el archivo', e),
+    });
+    disposers.push(() => watcher.dispose());
+    if (fsAdapter) watcher.start();
 
     // 10. Comandos.
     const focusEditor = () => view.focus();
@@ -401,15 +430,15 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         id: 'history',
         label: 'Historial',
         keywords: 'copias de seguridad versiones backup respaldo',
-        // En modo degradado la identidad del archivo no es estable y no se guardan copias.
+        // En modo degradado la identidad del archivo no es estable y no se guardan versiones.
         when: () => !degraded,
         run: async () => {
           if (isOverlayOpen()) {
             closeOverlay();
             return;
           }
-          await backupReady; // que la copia de hoy, si la hay, ya esté en la lista
-          openHistory(todoId, file.name, focusEditor);
+          await backupReady; // que la versión de apertura, si la hay, ya esté en la lista
+          openHistory(todoId, file.name, { saveNow: () => history.saveNow(), restoreFocus: focusEditor });
         },
       },
       {
@@ -509,11 +538,17 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     const removeShortcuts = installShortcuts(commands);
     disposers.push(removeShortcuts);
 
+    const onHide = () => {
+      void liveDraft.flush();
+      if (!degraded) void autosave.flush();
+    };
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        void liveDraft.flush();
-        if (!degraded) void autosave.flush();
-      }
+      if (document.visibilityState === 'hidden') onHide();
+      // Al volver a la pestaña: comprobar ya si el archivo cambió mientras estábamos fuera.
+      else if (fsAdapter) void watcher.check();
+    };
+    const onFocus = () => {
+      if (fsAdapter) void watcher.check();
     };
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       void liveDraft.flush();
@@ -523,12 +558,14 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
     window.addEventListener('beforeunload', onBeforeUnload);
-    window.addEventListener('pagehide', onVisibility);
+    window.addEventListener('pagehide', onHide);
     disposers.push(() => {
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
       window.removeEventListener('beforeunload', onBeforeUnload);
-      window.removeEventListener('pagehide', onVisibility);
+      window.removeEventListener('pagehide', onHide);
       closeOverlay();
     });
 

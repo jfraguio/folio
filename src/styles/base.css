@@ -131,8 +131,7 @@ input:focus-visible {
   opacity: var(--chrome-opacity-hover); /* siempre con el contraste fuerte */
 }
 
-.status-dot[data-state='error']::after,
-.status-dot[data-state='conflict']::after {
+.status-dot[data-state='error']::after {
   background: var(--err);
   opacity: 0.8;
 }

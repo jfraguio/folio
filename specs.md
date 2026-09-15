@@ -35,12 +35,12 @@ Principios fundamentales (heredados de Folio):
 | **Nombre de tab dinámico** | Una tab vacía se llama por su número (`1`, `2`, … `10`). Si tiene contenido, su nombre es la **primera palabra** del contenido. |
 | **Contenido a pantalla completa** | El área de texto de la tab activa ocupa toda la ventana (menos la franja de las propias tabs y los elementos discretos de las esquinas). |
 | **Sin botón Cerrar** | Las tabs no son un panel/modal: son la aplicación. No existe botón «Cerrar» en la vista de tabs. |
-| **Autosave** | Mismo mecanismo y misma máquina de estados que Folio (debounce, guardado periódico, reintentos, conflictos), con el mismo **punto de estado abajo a la derecha**. |
+| **Autosave** | Mismo mecanismo y misma máquina de estados que Folio (debounce, guardado periódico, reintentos), sin diálogo de conflicto (§6.3), con el mismo **punto de estado abajo a la derecha**. |
 | **Menú** | Se abre con un botón abajo a la izquierda (idéntico al de Folio: tres líneas horizontales) **o con atajo de teclado** (`Cmd/Ctrl+K`). Es un overlay tipo paleta de comandos. |
 | **Tema claro/oscuro** | Opción del menú. Mismos tokens de color que Folio. |
 | **Corrector ortográfico** | Opción del menú para activar/desactivar. Palabras erróneas pintadas de rojo apagado, igual que en Folio, sin subrayado ni sugerencias. |
 | **Diccionario personal** | Opción del menú. Lista de palabras aceptadas, persistente dentro del propio `.md`, con gestión (ver/quitar). |
-| **Historial** | Opción del menú. Copias de seguridad de apertura (solo lectura, descargables), igual que en Folio. |
+| **Historial** | Opción del menú. Versiones del archivo: al abrir, cada hora y a petición («Guardar versión»); 50 máx.; solo lectura, descargables (§8.3). |
 | **Pantalla completa** | Entrar/salir de pantalla completa (acción explícita, nunca automática). |
 | **Marca de la app** | Arriba a la derecha, con la misma estética que «FOLIO», el texto **«TO-DO»**. |
 
@@ -244,7 +244,6 @@ Punto de 6 px en la **esquina inferior derecha**, color atenuado del tema (`.sta
 | `saved` | Punto invisible (opacidad 0) |
 | `dirty` / `saving` | Punto visible, opacidad 0.4 |
 | `error` | Punto en color `--err`, opacidad 0.8, `title` explicativo; al pulsarlo, reintenta o abre «Guardar como…» |
-| `conflict` | Igual que `error`; al pulsarlo abre el diálogo de conflicto |
 | `degraded` | Punto visible opacidad 0.4 (modo sin escritura directa) |
 
 Al pasar el ratón: tooltip «Guardado hace 2 min» (tipografía pequeña). En to-do **no hay contador de palabras**, así que el punto puede ir solo en la esquina.
@@ -266,18 +265,24 @@ Disparadores de `flush()`:
 
 Una sola escritura en vuelo; cambios durante la escritura marcan `pendingAgain` y se reescriben al terminar.
 
-### 6.3. Escritura y conflicto
+### 6.3. Escritura: el disco manda si es más nuevo
 
 ```ts
 const file = await handle.getFile();
-if (file.lastModified !== lastKnownMtime) return enterConflict(file);
+if (file.lastModified > lastKnownMtime) return reloadFromDisk(); // abortar: alguien guardó después
 const w = await handle.createWritable();  // temporal + swap atómico en close()
 await w.write(text);
 await w.close();
 lastKnownMtime = (await handle.getFile()).lastModified;
 ```
 
-Conflicto (mtime distinto): se detiene el autosave, el punto pasa a `conflict`, y un diálogo mínimo ofrece **«Conservar mi versión»** (sobrescribe) o **«Cargar la del disco»** (reemplaza el editor; advierte de que los cambios locales se pierden). Mientras tanto se puede seguir escribiendo: el borrador vivo protege el texto.
+**No hay diálogo de conflicto.** Política de concurrencia, pensada para un archivo en iCloud Drive editado desde varios ordenadores:
+
+- Todo lo que se escribe en local se guarda en el archivo.
+- Justo antes de escribir se comprueba el `lastModified` físico. Si es **posterior** al de la versión cargada, la escritura se aborta, se relee el archivo y su contenido sustituye al local (conservando la posición del cursor). En el peor de los casos se pierden los segundos de trabajo desde el último sondeo (§6.6).
+- Si es igual o **anterior** (aunque el contenido difiera, p. ej. una restauración con fecha antigua), lo local prevalece y se escribe.
+
+La misma regla la aplica el sondeo de cambios externos (§6.6), que detecta la versión nueva sin necesidad de que el usuario escriba.
 
 ### 6.4. Errores de guardado
 
@@ -292,6 +297,18 @@ Conflicto (mtime distinto): se detiene el autosave, el punto pasa a `conflict`, 
 ### 6.5. Borrador vivo (live draft)
 
 Contenido completo (las 10 tabs + diccionario serializados) en IndexedDB (`store drafts`, clave `todoId`) con debounce de 300 ms. Al abrir, si hay un borrador más reciente que el archivo y con contenido distinto, se ofrece **una vez** recuperarlo. En modo degradado es el único autosave real.
+
+### 6.6. Detección de cambios externos
+
+El archivo suele vivir en una carpeta sincronizada (iCloud Drive), así que puede cambiar desde otro ordenador mientras está abierto. Para no trabajar largo rato sobre una versión obsoleta, la sesión sondea el estado del archivo de forma **ligera**: solo `lastModified`, nunca hashes ni lecturas periódicas del contenido (`src/persistence/fileWatcher.ts`).
+
+- **Estado:** `file` (archivo abierto) y `lastKnownModified` = `autosave.lastKnownMtime`, el mtime de la versión cargada. Es un único valor compartido con el autosave, que ya lo actualiza con cada escritura propia; así una escritura nuestra nunca se confunde con un cambio externo.
+- **Polling:** cada **10 s** mientras hay un archivo abierto con escritura directa. `checkLastModified()`: `handle.getFile().lastModified` y comparar.
+  - Igual o anterior → nada (no se lee el contenido ni se toca el editor; la versión cargada sigue siendo la vigente).
+  - Posterior → releer el archivo, volcarlo en el editor (tabs + diccionario, conservando la posición del cursor), `autosave.accept(mtime, texto)` y aviso breve.
+- **Al recuperar el foco:** `visibilitychange` → `visible` y `focus` de la ventana ejecutan la misma comprobación de inmediato, sin esperar al siguiente intervalo.
+- **Salvaguardas:** una sola comprobación en vuelo; si el `getFile()` falla (iCloud puede tener el archivo no disponible unos instantes) se ignora y se reintenta en el siguiente ciclo. La recarga es **incondicional**: el disco manda aunque haya cambios locales sin guardar. La única excepción es una escritura propia en vuelo (`saving`): recargar en mitad de ella dejaría editor y disco desincronizados y el mtime de nuestra escritura ocultaría la diferencia; además esa escritura ya hace su propia comprobación (§6.3). Se espera al siguiente ciclo.
+- En modo degradado (sin File System Access) no hay sondeo: el `File` del `<input>` es una instantánea y su `lastModified` nunca cambia.
 
 ---
 
@@ -340,12 +357,22 @@ Entradas condicionales adicionales (al estilo de Folio, si se decide incluirlas)
 
 ### 8.3. Historial
 
-Idéntico al de Folio (`src/ui/History.ts` + `src/persistence/backups.ts`):
+Versiones del `.md` completo (tabs y diccionario incluidos) guardadas en IndexedDB (`src/ui/History.ts` + `src/persistence/backups.ts`), con fecha/hora y número de palabras. Se ligan al `todoId`, así que sobreviven a renombrar el archivo. En modo degradado no se guardan versiones y la opción no aparece en el menú.
 
-- Al abrir el archivo (con escritura directa) se guarda en IndexedDB una **copia de apertura** del `.md` tal y como se leyó del disco (tabs y diccionario incluidos), con fecha/hora y número de palabras.
-- Reglas: como mucho **una copia por día local**; **sin duplicados** (si el contenido coincide con cualquier copia existente, no se guarda); se conservan las **10 más recientes** (`BACKUP_KEEP = 10`); se ligan al `todoId`, así que sobreviven a renombrar el archivo. En modo degradado no se guardan copias y la opción no aparece en el menú.
-- El panel muestra una fila por copia: fecha y hora, número de palabras, y botón **«Descargar»** (guarda como `<nombre> — YYYY-MM-DD.md` vía `showSaveFilePicker` o descarga directa).
-- **A propósito no existe «restaurar»:** una copia nunca vuelve al editor ni al archivo desde el navegador. Si el usuario quiere recuperar algo, descarga la copia y la abre como cualquier `.md`.
+Cuándo se guarda una versión:
+
+- **Al abrir** el archivo, si hace más de una hora de la versión más reciente (o no hay ninguna): se guarda lo que había en el disco, antes de cualquier recuperación de borrador.
+- **Cada hora** mientras la aplicación está abierta (`HISTORY_INTERVAL_MS`), con el texto actual del editor. Tres horas abierta → tres versiones.
+- **A petición**, con el botón **«Guardar versión»** del panel: guarda la foto actual sin esperar, con independencia de cuándo fue la última.
+
+Reglas:
+
+- Con cada versión se guarda el **SHA-256** del texto (`hash`). Ninguna versión, automática ni manual, se guarda si su hash coincide con el de la versión más reciente: una hora sin tocar el archivo no consume plaza, y «Guardar versión» sin cambios avisa «Sin cambios desde la última versión». Se compara solo con la más reciente: volver a un texto anterior sí genera versión.
+- Se conservan las **50 más recientes** (`HISTORY_KEEP = 50`): al guardar la 51.ª desaparece la más antigua.
+- El panel muestra una fila por versión (fecha y hora, palabras) con botón **«Descargar»** (guarda como `<nombre> — YYYY-MM-DD HH.mm.md` vía `showSaveFilePicker` o descarga directa), y abajo **«Guardar versión»**.
+- **A propósito no existe «restaurar»:** una versión nunca vuelve al editor ni al archivo desde el navegador. Si el usuario quiere recuperar algo, la descarga y la abre como cualquier `.md`.
+
+Migración: la BD pasa a versión 2. El store `backups` cambia su clave de `[todoId, day]` (una copia por día) a `[todoId, ts]`; las copias existentes se conservan.
 
 ---
 
@@ -409,7 +436,7 @@ El atributo `data-theme` se aplica en `<html>` con un script inline en `index.ht
 |---|---|---|
 | `files` | `id` | `{ id, handle, name, lastOpened }` |
 | `drafts` | `todoId` | `{ todoId, ts, text }` — borrador vivo |
-| `backups` | `[todoId, day]` (índice `todoId`) | `{ todoId, day: 'YYYY-MM-DD', ts, text, words }` — copias de apertura |
+| `backups` | `[todoId, ts]` (índice `todoId`) | `{ todoId, ts, text, hash, words }` — versiones del historial (BD v2; `hash` ausente en las migradas de v1, se calcula al comparar) |
 
 Acceso con la librería `idb`.
 
@@ -462,7 +489,7 @@ to-do/
       db.ts
       autosave.ts           máquina de estados (copiada de Folio)
       liveDraft.ts
-      backups.ts            copias de apertura
+      backups.ts            versiones del historial (apertura, horaria, manual)
       dictionary.ts         diccionario personal
       todoBlocks.ts         parseo/serialización de [todo:tab N] y <!-- todo:diccionario -->
       prefs.ts
@@ -491,7 +518,7 @@ to-do/
 
 1. Script inline en `index.html` aplica `data-theme` desde `localStorage`.
 2. `main.ts` detecta adapter, abre IndexedDB, muestra `StartScreen` (Abrir / Nuevo / Continuar).
-3. Al abrir: leer → normalizar → lock → copia de apertura → comprobar borrador vivo → parsear `todoBlocks` (tabs + diccionario) → crear TabBar + editor con la tab activa → iniciar autosave y live draft.
+3. Al abrir: leer → normalizar → lock → versión de apertura si toca → comprobar borrador vivo → parsear `todoBlocks` (tabs + diccionario) → crear TabBar + editor con la tab activa → iniciar autosave y live draft.
 
 ### 12.4. Sesión
 
@@ -532,9 +559,10 @@ Adaptación de `session.ts` de Folio:
 ## 14. Tests (mínimos recomendados)
 
 - `todoBlocks`: parseo/serialización de tabs (vacías no se escriben, sin marcadores → todo a tab 1, escape de `-->`, orden del bloque de diccionario).
-- `autosave`: debounce, encadenado, reintentos, conflicto (Vitest con `vi.useFakeTimers()`), igual que en Folio.
+- `autosave`: debounce, encadenado, reintentos, disco posterior aborta y recarga, disco anterior se sobrescribe (Vitest con `vi.useFakeTimers()`), igual que en Folio.
+- `fileWatcher`: sondeo cada 10 s por `lastModified`, recarga solo si es posterior, espera si hay escritura propia en vuelo, una comprobación en vuelo, errores ignorados.
 - `tabTitle`: primera palabra, truncado, número si vacía.
-- `backups`: una copia por día, sin duplicados, retención de 10.
+- `backups`: versión de apertura si hace más de una hora, horaria, deduplicación por SHA-256 frente a la más reciente (también la manual), retención de 50, migración v1→v2 con hash calculado al vuelo.
 
 ---
 
@@ -547,7 +575,7 @@ Adaptación de `session.ts` de Folio:
 5. Menú con exactamente estas opciones base, en este orden: **Tema claro/oscuro**, **Activar/Desactivar corrector**, **Diccionario**, **Historial** (más las condicionales que se decidan: añadir palabra, pantalla completa, guardar como).
 6. Corrector: palabras erróneas en rojo apagado (`--misspell`), sin subrayado, activado por defecto, solo español.
 7. Diccionario personal persistido en el bloque `<!-- todo:diccionario -->` del `.md`.
-8. Historial: copias de apertura (1/día, sin duplicados, 10 máx.), solo descargables, nunca restaurables.
+8. Historial: versiones (al abrir si hace más de 1 h, cada hora, botón «Guardar versión»; 50 máx.), solo descargables, nunca restaurables.
 9. Pantalla completa disponible (atajo `Cmd/Ctrl+Shift+F` y/o entrada de menú).
 10. Marca «TO-DO» arriba a la derecha con la estética de «FOLIO».
 11. Todo el contenido persiste en un único `.md` con la estructura de marcadores `[todo:tab N]`.

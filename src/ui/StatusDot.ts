@@ -9,7 +9,6 @@ const LABELS: Record<DotState, string> = {
   saving: 'Guardando…',
   saved: 'Guardado',
   error: 'No se pudo guardar · pulsa para resolver',
-  conflict: 'El archivo cambió en el disco · pulsa para resolver',
   degraded: 'Borrador local · descarga el .md desde el menú',
 };
 
