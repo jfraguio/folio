@@ -1,0 +1,19 @@
+specs.md
+  s_a4d0c0238a0a35::t_d3bfa3be398b47 38,43,268,272,279-285,301-312,360-373,375,439,492,521,562-563,565,578
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0ce9f31b1cbee66210c9607fe9f8d39fd55e9ccb",
+  "prompts": {},
+  "sessions": {
+    "s_a4d0c0238a0a35": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f5a0afd31ffeI3jEBCEYR50pI4",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "franciscojfc <franciscojfc@inditex.com>"
+    }
+  }
+}
