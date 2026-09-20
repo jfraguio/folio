@@ -16,7 +16,7 @@ export interface TabBarOptions {
 /**
  * Barra superior con las tabs. Siempre visible y discreta, sin botones de crear ni quitar:
  * las tabs no son un panel, son la aplicación. Hay entre 1 y TAB_COUNT tabs; crearlas y
- * quitarlas se hace desde el menú («Crear tab», «Eliminar tab N»), y la barra solo refleja
+ * quitarlas se hace desde el menú («Crear pestaña», «Eliminar pestaña N»), y la barra solo refleja
  * el número que haya.
  *
  * Los botones se reutilizan entre renders y `render()` solo actualiza texto y estado: así el

@@ -458,7 +458,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           }
           const items: MenuItem[] = commands
             .visible()
-            // Los saltos directos a una tab (`tab.N`) van por atajo; «Crear tab» y «Eliminar tab» sí se listan.
+            // Los saltos directos a una tab (`tab.N`) van por atajo; «Crear pestaña» y «Eliminar pestaña» sí se listan.
             .filter((c) => c.id !== 'menu' && !/^tab\.\d+$/.test(c.id))
             // En táctil no hay teclado físico: los atajos a la derecha solo estorban.
             .map((c) => ({ id: c.id, label: labelOf(c), meta: touch ? undefined : (c.shortcut ?? shortcutFor(c.id)) }));
@@ -620,15 +620,15 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       // Crear y quitar tabs: al final del menú. Se quita solo la tab abierta, y solo si está vacía.
       {
         id: 'tab.create',
-        label: 'Crear tab',
-        keywords: 'nueva pestaña añadir',
+        label: 'Crear pestaña',
+        keywords: 'nueva tab añadir',
         when: () => tabs.length < TAB_COUNT,
         run: () => addTab(),
       },
       {
         id: 'tab.remove',
-        label: () => `Eliminar tab ${active + 1}`,
-        keywords: 'quitar borrar pestaña',
+        label: () => `Eliminar pestaña ${active + 1}`,
+        keywords: 'quitar borrar tab',
         when: () => canRemoveTab(active),
         run: () => removeTab(active),
       },

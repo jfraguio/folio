@@ -2,7 +2,7 @@ import { el, clear, formatDateTime } from './el';
 import { openOverlay } from './Menu';
 import { notice } from './Notice';
 import { saveToNewFile } from '../fs/FallbackAdapter';
-import { listVersions, versionFileName, HISTORY_KEEP } from '../persistence/backups';
+import { listVersions, versionFileName } from '../persistence/backups';
 import type { BackupRecord } from '../persistence/db';
 import { formatNumber } from '../text/words';
 
@@ -55,7 +55,8 @@ export function openHistory(todoId: string, fileName: string, o: HistoryOptions)
     el(
       'div',
       { class: 'panel__actions' },
-      el('span', { class: 'panel__meta', style: { marginRight: 'auto' } }, `Una versión cada hora · se conservan ${HISTORY_KEEP}`),
+      // Hueco a la izquierda que empuja los botones a la derecha (reservado para futura información).
+      el('span', { class: 'panel__meta', style: { marginRight: 'auto' } }),
       el('button', { class: 'btn btn--quiet', on: { click: () => handle.close() } }, 'Cerrar'),
       saveBtn,
     ),

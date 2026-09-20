@@ -31,7 +31,7 @@ Principios fundamentales (heredados de Folio):
 
 | Funcionalidad | Detalle |
 |---|---|
-| **Hasta 10 tabs de texto plano** | Pantalla única con entre 1 y 10 espacios de texto libre. Equivalen a las «Notas» de Folio, pero son el contenido principal de la app, no un panel secundario. Un archivo nuevo arranca con una tab; desde el menú se crea otra («Crear tab», mientras haya menos de 10) o se elimina la abierta si está vacía («Eliminar tab N»); nunca se borra texto y siempre queda al menos una. |
+| **Hasta 10 tabs de texto plano** | Pantalla única con entre 1 y 10 espacios de texto libre. Equivalen a las «Notas» de Folio, pero son el contenido principal de la app, no un panel secundario. Un archivo nuevo arranca con una tab; desde el menú se crea otra («Crear pestaña», mientras haya menos de 10) o se elimina la abierta si está vacía («Eliminar pestaña N»); nunca se borra texto y siempre queda al menos una. |
 | **Nombre de tab dinámico** | Una tab vacía se llama por su número (`1`, `2`, … `10`). Si tiene contenido, su nombre es la **primera palabra** del contenido. |
 | **Contenido a pantalla completa** | El área de texto de la tab activa ocupa toda la ventana (menos la franja de las propias tabs y los elementos discretos de las esquinas). |
 | **Sin botón Cerrar** | Las tabs no son un panel/modal: son la aplicación. No existe botón «Cerrar» en la vista de tabs, ni iconos de crear/quitar: eso va en el menú. |
@@ -223,8 +223,8 @@ interface FileAdapter {
 - **Nombre**: primera palabra del contenido (`/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/u`, como `tabTitle` de Folio), truncada a 16 caracteres con `…` si es más larga; si la tab está vacía, su número (`1`…`10`).
 - Cambiar de tab: clic, o atajos (ver §9). Al cambiar, el editor muestra el contenido de la nueva tab y el foco vuelve al texto (cursor al final, como en `Notes.ts`).
 - Se recuerda la última tab activa durante la sesión (y puede persistirse en `localStorage`, clave `todo.lastTab`).
-- **Crear**: opción «Crear tab» al final del menú, visible mientras haya menos de 10 tabs; añade una tab vacía al final y pasa a ella.
-- **Eliminar**: opción «Eliminar tab N» (N = la tab abierta) al final del menú, visible solo si la tab abierta está vacía (su nombre es su número) y no es la única; al elegirla se quita y pasa a estar activa la que ocupa su sitio (o la última). Nunca se borra texto: una tab con contenido no se puede eliminar.
+- **Crear**: opción «Crear pestaña» al final del menú, visible mientras haya menos de 10 tabs; añade una tab vacía al final y pasa a ella.
+- **Eliminar**: opción «Eliminar pestaña N» (N = la tab abierta) al final del menú, visible solo si la tab abierta está vacía (su nombre es su número) y no es la única; al elegirla se quita y pasa a estar activa la que ocupa su sitio (o la última). Nunca se borra texto: una tab con contenido no se puede eliminar.
 - Los atajos `Mod+N` y los dígitos con el menú abierto solo actúan si esa tab existe.
 
 ### 5.2. Datos
@@ -571,7 +571,7 @@ Adaptación de `session.ts` de Folio:
 
 ## 15. Criterios de aceptación
 
-1. La app muestra las tabs en la parte superior (una en un archivo nuevo, hasta 10 con «Crear tab» en el menú; la abierta, si está vacía, se quita con «Eliminar tab N»); la tab activa ocupa toda la pantalla y **no hay botón Cerrar**.
+1. La app muestra las tabs en la parte superior (una en un archivo nuevo, hasta 10 con «Crear pestaña» en el menú; la abierta, si está vacía, se quita con «Eliminar pestaña N»); la tab activa ocupa toda la pantalla y **no hay botón Cerrar**.
 2. Tab vacía → nombre = número; tab con contenido → nombre = primera palabra (truncada a 16 chars).
 3. Autosave funcional con el punto de estado abajo a la derecha, mismos estados y comportamiento que Folio.
 4. Botón de menú abajo a la izquierda + `Cmd/Ctrl+K` abren el menú-overlay.

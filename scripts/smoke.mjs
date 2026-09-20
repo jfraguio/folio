@@ -72,7 +72,7 @@ ok('tabs vacías se llaman por su número', (await page.locator('.tab-bar__tab')
 await page.keyboard.press('Meta+k');
 await page.waitForSelector('.panel__item');
 let menuLabels = await page.locator('.panel__item .panel__label').allTextContents();
-ok('el menú ofrece «Crear tab» al final y no «Eliminar» con una sola tab', menuLabels.at(-1) === 'Crear tab' && !menuLabels.some((l) => l.startsWith('Eliminar tab')));
+ok('el menú ofrece «Crear pestaña» al final y no «Eliminar» con una sola tab', menuLabels.at(-1) === 'Crear pestaña' && !menuLabels.some((l) => l.startsWith('Eliminar pestaña')));
 await page.keyboard.press('Escape');
 
 // 3. Escribir en la tab 1: el título cambia a la primera palabra.
@@ -94,21 +94,21 @@ const menuRun = async (label) => {
   await page.getByRole('option', { name: label, exact: true }).click();
   await page.waitForTimeout(100);
 };
-ok('con texto en la tab 1 el menú no ofrece eliminarla', !(await (async () => { await page.keyboard.press('Meta+k'); await page.waitForSelector('.panel__item'); const ls = await page.locator('.panel__item .panel__label').allTextContents(); await page.keyboard.press('Escape'); return ls; })()).some((l) => l.startsWith('Eliminar tab')));
-await menuRun('Crear tab');
-ok('«Crear tab» crea la tab 2 y la activa', (await page.locator('.tab-bar__tab').count()) === 2 && await page.locator('.tab-bar__tab').nth(1).evaluate((n) => n.classList.contains('tab-bar__tab--active')));
+ok('con texto en la tab 1 el menú no ofrece eliminarla', !(await (async () => { await page.keyboard.press('Meta+k'); await page.waitForSelector('.panel__item'); const ls = await page.locator('.panel__item .panel__label').allTextContents(); await page.keyboard.press('Escape'); return ls; })()).some((l) => l.startsWith('Eliminar pestaña')));
+await menuRun('Crear pestaña');
+ok('«Crear pestaña» crea la tab 2 y la activa', (await page.locator('.tab-bar__tab').count()) === 2 && await page.locator('.tab-bar__tab').nth(1).evaluate((n) => n.classList.contains('tab-bar__tab--active')));
 const docTab2 = await page.locator('.cm-content').textContent();
 ok('tab 2 vacía', (docTab2 ?? '') === '');
 await page.keyboard.press('Meta+k');
 await page.waitForSelector('.panel__item');
 menuLabels = await page.locator('.panel__item .panel__label').allTextContents();
-ok('el menú ofrece «Eliminar tab 2» para la tab abierta vacía', menuLabels.includes('Eliminar tab 2'));
+ok('el menú ofrece «Eliminar pestaña 2» para la tab abierta vacía', menuLabels.includes('Eliminar pestaña 2'));
 await page.keyboard.press('Escape');
 // Eliminarla y volver a crearla: se vuelve a la tab 1 y luego a una tab 2 nueva.
-await menuRun('Eliminar tab 2');
-ok('«Eliminar tab 2» la quita y vuelve a la 1', (await page.locator('.tab-bar__tab').count()) === 1 && await page.locator('.tab-bar__tab').first().evaluate((n) => n.classList.contains('tab-bar__tab--active')));
+await menuRun('Eliminar pestaña 2');
+ok('«Eliminar pestaña 2» la quita y vuelve a la 1', (await page.locator('.tab-bar__tab').count()) === 1 && await page.locator('.tab-bar__tab').first().evaluate((n) => n.classList.contains('tab-bar__tab--active')));
 ok('la tab 1 conserva su texto tras eliminar la 2', (await page.locator('.cm-content').textContent())?.includes('Compra semanal'));
-await menuRun('Crear tab');
+await menuRun('Crear pestaña');
 // Cambiar de tab con el clic sigue funcionando.
 await page.locator('.tab-bar__tab').nth(0).click();
 await page.locator('.tab-bar__tab').nth(1).click();
@@ -131,8 +131,8 @@ await page.keyboard.press('Meta+k');
 await page.waitForSelector('.panel__item');
 const labels = await page.locator('.panel__item .panel__label').allTextContents();
 const base = labels.filter((l) => !l.startsWith('Añadir'));
-ok('menú con Tema, corrector, Diccionario, Historial, Pantalla completa y Crear tab al final', JSON.stringify(base) === JSON.stringify([
-  'Tema oscuro', 'Desactivar corrector', 'Diccionario', 'Historial', 'Pantalla completa', 'Crear tab',
+ok('menú con Tema, corrector, Diccionario, Historial, Pantalla completa y Crear pestaña al final', JSON.stringify(base) === JSON.stringify([
+  'Tema oscuro', 'Desactivar corrector', 'Diccionario', 'Historial', 'Pantalla completa', 'Crear pestaña',
 ]));
 ok('menú ofrece añadir la palabra bajo el cursor', labels.some((l) => l.startsWith('Añadir «') && l.endsWith('» al diccionario')));
 // Con el corrector desactivado, «Añadir … al diccionario» (y «Diccionario») no se ofrecen.
