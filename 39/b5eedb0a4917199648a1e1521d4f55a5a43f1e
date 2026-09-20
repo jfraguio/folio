@@ -1,0 +1,61 @@
+index.html
+  s_886dbbc95dd35b::t_0f54dba70dece5 5-11,13-18,21,29-30
+package-lock.json
+  s_886dbbc95dd35b::t_b71ced74eed364 26,2808-2814,2822-2831,3186-3198,3555-3567,4178-4196,6348-6357,6714-6735
+package.json
+  s_886dbbc95dd35b::t_7359db2887b554 9,36
+scripts/icons.mjs
+  s_886dbbc95dd35b::t_217a05038d5a2d 1-45
+scripts/smoke.mjs
+  s_886dbbc95dd35b::t_00fa7b1f5f4557 66,123,142
+src/editor/createEditor.ts
+  s_886dbbc95dd35b::t_9616a462392dcc 24-26
+src/editor/links.ts
+  s_886dbbc95dd35b::t_648a380005d610 8-11,47-57,59-61,71-90
+src/fs/detect.ts
+  s_886dbbc95dd35b::t_3f9c3ed488e3ce 9-21
+src/main.ts
+  s_886dbbc95dd35b::t_80450d8f074482 7,21,37
+src/persistence/prefs.ts
+  s_886dbbc95dd35b::t_ca4e617096834d 75-77,83-86
+src/styles/base.css
+  s_886dbbc95dd35b::t_0dd32d831c6737 14-15,22-29,41-43,74-75,95-106,126-127,142-161,203-208,213-214,231-232,245-259,278-283,294,309-315
+src/styles/editor.css
+  s_886dbbc95dd35b::t_41eba03c726acf 11-13,17-23,33-35,44-45,48,54-66,99-102
+src/styles/overlays.css
+  s_886dbbc95dd35b::t_c26ae2184758ac 41-50,86-95,105-119,192-202,232-249,308-357
+src/styles/tabs.css
+  s_886dbbc95dd35b::t_31f50ce7b32b52 2-11,19,30,51-54,62-101
+src/styles/tokens.css
+  s_886dbbc95dd35b::t_7549bf21e401d0 49,51-53,57-73
+src/ui/MenuButton.ts
+  s_886dbbc95dd35b::t_aa930e84343f98 3,5,7-8,26-27
+src/ui/StartScreen.ts
+  s_886dbbc95dd35b::t_6bb74d48133b13 6-7,35-37
+src/ui/StatusDot.ts
+  s_886dbbc95dd35b::t_436d3ae835bfb6 17-21,74
+src/ui/TabBar.ts
+  s_886dbbc95dd35b::t_2818fd7424350b 1,19-21,26,32-40,47,53,56-60,63-73
+tests/detect.test.ts
+  s_886dbbc95dd35b::t_1c9843fbc0480e 1-47
+tests/tabBar.test.ts
+  s_886dbbc95dd35b::t_3ae1a56e3bbeaf 1-61
+vite.config.ts
+  s_886dbbc95dd35b::t_7fa017a0d63d7b 19,22,42-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "39b5eedb0a4917199648a1e1521d4f55a5a43f1e",
+  "prompts": {},
+  "sessions": {
+    "s_886dbbc95dd35b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f422635beffeVcc7V4xldssh5y",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
