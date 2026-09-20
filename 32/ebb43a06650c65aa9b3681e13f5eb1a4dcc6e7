@@ -1,0 +1,19 @@
+tests/focusMode.test.ts
+  s_1f97badbd1db72::t_a5d88f7834c653 1-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "32ebb43a06650c65aa9b3681e13f5eb1a4dcc6e7",
+  "prompts": {},
+  "sessions": {
+    "s_1f97badbd1db72": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f3f84c421ffeiHrQegZUWLeDFq",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
