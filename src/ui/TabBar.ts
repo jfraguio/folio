@@ -8,16 +8,18 @@ export function tabTitle(text: string, index: number): string {
 }
 
 export interface TabBarOptions {
-  /** Contenidos actuales de las tabs (se leen en cada render). */
+  /** Contenidos actuales de las tabs (se leen en cada render; su longitud es el número de tabs). */
   tabs: string[];
   onSelect: (index: number) => void;
 }
 
 /**
- * Barra superior con las TAB_COUNT tabs. Siempre visible, discreta, sin botón de cierre:
- * las tabs no son un panel, son la aplicación.
+ * Barra superior con las tabs. Siempre visible y discreta, sin botones de crear ni quitar:
+ * las tabs no son un panel, son la aplicación. Hay entre 1 y TAB_COUNT tabs; crearlas y
+ * quitarlas se hace desde el menú («Crear tab», «Eliminar tab N»), y la barra solo refleja
+ * el número que haya.
  *
- * Los botones se crean una sola vez y `render()` solo actualiza su texto y estado: así el
+ * Los botones se reutilizan entre renders y `render()` solo actualiza texto y estado: así el
  * desplazamiento horizontal de la barra (en móvil) no se pierde con cada tecla pulsada.
  */
 export class TabBar {
@@ -27,17 +29,9 @@ export class TabBar {
 
   constructor(private readonly o: TabBarOptions) {
     this.root = el('div', { class: 'tab-bar', attrs: { role: 'tablist' } });
-    // El CSS reparte el ancho entre las tabs a partir de este número.
+    // El CSS reparte el ancho a partir del máximo de tabs: cada hueco mide lo mismo haya las
+    // que haya, así al crear una tab las demás no se mueven.
     this.root.style.setProperty('--tab-count', String(TAB_COUNT));
-    for (let k = 0; k < TAB_COUNT; k++) {
-      const btn = el('button', {
-        class: 'tab-bar__tab',
-        attrs: { role: 'tab' },
-        on: { click: () => this.o.onSelect(k) },
-      });
-      this.buttons.push(btn);
-      this.root.appendChild(btn);
-    }
     this.render();
   }
 
@@ -47,9 +41,23 @@ export class TabBar {
     this.scrollActiveIntoView();
   }
 
-  /** Relee los contenidos y redibuja (tras escribir, cambiar de tab o cargar). */
+  /** Relee los contenidos y redibuja (tras escribir, cambiar de tab, crear o quitar una, o cargar). */
   render(): void {
-    for (let k = 0; k < TAB_COUNT; k++) {
+    const count = Math.max(1, Math.min(TAB_COUNT, this.o.tabs.length));
+    // Ajustar el número de botones al de tabs, reutilizando los existentes.
+    while (this.buttons.length < count) {
+      const k = this.buttons.length;
+      const btn = el('button', {
+        class: 'tab-bar__tab',
+        attrs: { role: 'tab' },
+        on: { click: () => this.o.onSelect(k) },
+      });
+      this.buttons.push(btn);
+      this.root.appendChild(btn);
+    }
+    while (this.buttons.length > count) this.buttons.pop()!.remove();
+
+    for (let k = 0; k < count; k++) {
       const btn = this.buttons[k]!;
       const text = this.o.tabs[k] ?? '';
       const title = tabTitle(text, k);

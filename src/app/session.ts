@@ -165,7 +165,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     const commands = new CommandRegistry();
 
     // 6. Tabs y editor.
-    let active = Math.min(Math.max(prefs.get('lastTab'), 0), TAB_COUNT - 1);
+    let active = Math.min(Math.max(prefs.get('lastTab'), 0), tabs.length - 1);
     /** `true` mientras se vuelca en el editor la versión del disco: ese cambio no es del usuario. */
     let syncingFromDisk = false;
 
@@ -198,16 +198,18 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     });
     disposers.push(() => view.destroy());
 
-    /** Cambia la tab activa: guarda el contenido actual y carga el de la nueva. */
-    function switchTab(i: number): void {
-      // En táctil, si el teclado estaba cerrado, tocar una tab no debe abrirlo.
-      const keepFocus = !touch || view.hasFocus || editorHadFocus;
+    /**
+     * En táctil, si el teclado estaba cerrado, pulsar en la barra no debe abrirlo: se enfoca el
+     * editor solo en escritorio o si ya lo tenía. Consume `editorHadFocus` (ver arriba).
+     */
+    function shouldKeepFocus(): boolean {
+      const keep = !touch || view.hasFocus || editorHadFocus;
       editorHadFocus = false;
-      if (i === active) {
-        if (keepFocus) view.focus();
-        return;
-      }
-      tabs[active] = view.state.doc.toString();
+      return keep;
+    }
+
+    /** Vuelca la tab `i` en el editor y la marca como activa (sin tocar el contenido de ninguna). */
+    function showTab(i: number, keepFocus: boolean): void {
       active = i;
       prefs.set('lastTab', i);
       view.dispatch({
@@ -217,6 +219,49 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       tabBar.setActive(i);
       refreshDone();
       if (keepFocus) view.focus();
+    }
+
+    /** Cambia la tab activa: guarda el contenido actual y carga el de la nueva. */
+    function switchTab(i: number): void {
+      const keepFocus = shouldKeepFocus();
+      if (i < 0 || i >= tabs.length) return;
+      if (i === active) {
+        if (keepFocus) view.focus();
+        return;
+      }
+      tabs[active] = view.state.doc.toString();
+      showTab(i, keepFocus);
+    }
+
+    /** Crea una tab vacía al final (hasta TAB_COUNT) y pasa a ella. */
+    function addTab(): void {
+      const keepFocus = shouldKeepFocus();
+      if (tabs.length >= TAB_COUNT) return;
+      tabs[active] = view.state.doc.toString();
+      tabs.push('');
+      showTab(tabs.length - 1, keepFocus);
+      markChanged(); // la tab nueva se escribe (marcador vacío) para que exista al reabrir
+    }
+
+    /** ¿Se puede quitar la tab `i`? Solo si está vacía y no es la única: nunca se borra texto. */
+    function canRemoveTab(i: number): boolean {
+      if (i < 0 || i >= tabs.length || tabs.length <= 1) return false;
+      const text = i === active ? view.state.doc.toString() : (tabs[i] ?? '');
+      return !text.trim();
+    }
+
+    /** Quita la tab `i` (ver `canRemoveTab`). */
+    function removeTab(i: number): void {
+      const keepFocus = shouldKeepFocus();
+      if (!canRemoveTab(i)) return;
+      tabs.splice(i, 1);
+      // Si se quita la activa, pasa a estarlo la que ocupa ahora su sitio (o la última, si era la
+      // última). Si se quita otra, la activa sigue siendo la misma, corrida si estaba detrás.
+      let next = active;
+      if (i === active) next = Math.min(i, tabs.length - 1);
+      else if (i < active) next = active - 1;
+      showTab(next, keepFocus);
+      markChanged();
     }
 
     /** Texto que va al disco: las tabs más el bloque del diccionario (si tiene contenido). */
@@ -329,6 +374,11 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       const wordsBefore = dictionary.list().join('\n');
       tabs.splice(0, tabs.length, ...split.tabs);
       dictionary.load(split.words);
+      // El disco puede traer menos tabs de las que había: la activa no puede quedar fuera.
+      if (active >= tabs.length) {
+        active = tabs.length - 1;
+        prefs.set('lastTab', active);
+      }
       const next = tabs[active] ?? '';
       const head = Math.min(view.state.selection.main.head, next.length);
       syncingFromDisk = true;
@@ -340,7 +390,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       } finally {
         syncingFromDisk = false;
       }
-      tabBar.render();
+      tabBar.setActive(active);
       // Hunspell no permite olvidar palabras: si el diccionario personal cambió, se recarga entero.
       if (dictionary.list().join('\n') !== wordsBefore) reloadSpell();
       else rescanSpell();
@@ -408,7 +458,8 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           }
           const items: MenuItem[] = commands
             .visible()
-            .filter((c) => c.id !== 'menu' && !c.id.startsWith('tab.'))
+            // Los saltos directos a una tab (`tab.N`) van por atajo; «Crear tab» y «Eliminar tab» sí se listan.
+            .filter((c) => c.id !== 'menu' && !/^tab\.\d+$/.test(c.id))
             // En táctil no hay teclado físico: los atajos a la derecha solo estorban.
             .map((c) => ({ id: c.id, label: labelOf(c), meta: touch ? undefined : (c.shortcut ?? shortcutFor(c.id)) }));
           // Sin ratón no hay tooltip en el punto de estado: el estado del guardado se lee aquí.
@@ -420,10 +471,12 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
             {
               items,
               onSelect: (item) => void commands.run(item.id),
-              // Con el menú abierto, un número cambia directamente a esa tab (0 = la 10).
+              // Con el menú abierto, un número cambia directamente a esa tab (0 = la 10), si existe.
               onKey: (e) => {
                 if (!/^[0-9]$/.test(e.key)) return false;
-                switchTab((Number(e.key) + 9) % TAB_COUNT);
+                const i = (Number(e.key) + 9) % TAB_COUNT;
+                if (i >= tabs.length) return false;
+                switchTab(i);
                 return true;
               },
             },
@@ -556,13 +609,28 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         hidden: !touch,
         run: () => prefs.set('fontSize', Math.max(FONT_SIZE_MIN, prefs.get('fontSize') - 1)),
       },
-      // Tabs por atajo (⌘1…⌘0 / Ctrl+1…Ctrl+0); no aparecen en el menú.
+      // Tabs por atajo (⌘1…⌘0 / Ctrl+1…Ctrl+0); no aparecen en el menú. Sin efecto si la tab no existe.
       ...Array.from({ length: TAB_COUNT }, (_, i) => ({
         id: `tab.${i}`,
         label: `Tab ${i + 1}`,
         hidden: true,
         run: () => switchTab(i),
       })),
+      // Crear y quitar tabs: al final del menú. Se quita solo la tab abierta, y solo si está vacía.
+      {
+        id: 'tab.create',
+        label: 'Crear tab',
+        keywords: 'nueva pestaña añadir',
+        when: () => tabs.length < TAB_COUNT,
+        run: () => addTab(),
+      },
+      {
+        id: 'tab.remove',
+        label: () => `Eliminar tab ${active + 1}`,
+        keywords: 'quitar borrar pestaña',
+        when: () => canRemoveTab(active),
+        run: () => removeTab(active),
+      },
     );
 
     // 11. Atajos y ciclo de vida.

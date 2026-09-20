@@ -9,7 +9,7 @@
 
 **to-do** es una aplicación web minimalista para guardar notas en **texto plano**. Hereda de Folio su filosofía: cero distracciones, interfaz casi invisible, el texto como protagonista, guardado automático y transparente, y escritura sobre archivos locales reales en formato Markdown/texto plano.
 
-La aplicación consta de **una única pantalla con 10 pestañas (tabs)**, equivalentes a las 10 «Notas» de Folio. Cada tab es un espacio de texto libre e independiente. El contenido de las tabs ocupa **toda la pantalla**.
+La aplicación consta de **una única pantalla con hasta 10 pestañas (tabs)**, equivalentes a las «Notas» de Folio. Cada tab es un espacio de texto libre e independiente; se empieza con una y se crean o quitan desde la propia barra. El contenido de las tabs ocupa **toda la pantalla**.
 
 Principios fundamentales (heredados de Folio):
 
@@ -31,10 +31,10 @@ Principios fundamentales (heredados de Folio):
 
 | Funcionalidad | Detalle |
 |---|---|
-| **10 tabs de texto plano** | Pantalla única con 10 espacios de texto libre. Equivalen a las «Notas» de Folio, pero son el contenido principal de la app, no un panel secundario. |
+| **Hasta 10 tabs de texto plano** | Pantalla única con entre 1 y 10 espacios de texto libre. Equivalen a las «Notas» de Folio, pero son el contenido principal de la app, no un panel secundario. Un archivo nuevo arranca con una tab; desde el menú se crea otra («Crear tab», mientras haya menos de 10) o se elimina la abierta si está vacía («Eliminar tab N»); nunca se borra texto y siempre queda al menos una. |
 | **Nombre de tab dinámico** | Una tab vacía se llama por su número (`1`, `2`, … `10`). Si tiene contenido, su nombre es la **primera palabra** del contenido. |
 | **Contenido a pantalla completa** | El área de texto de la tab activa ocupa toda la ventana (menos la franja de las propias tabs y los elementos discretos de las esquinas). |
-| **Sin botón Cerrar** | Las tabs no son un panel/modal: son la aplicación. No existe botón «Cerrar» en la vista de tabs. |
+| **Sin botón Cerrar** | Las tabs no son un panel/modal: son la aplicación. No existe botón «Cerrar» en la vista de tabs, ni iconos de crear/quitar: eso va en el menú. |
 | **Autosave** | Mismo mecanismo y misma máquina de estados que Folio (debounce, guardado periódico, reintentos), sin diálogo de conflicto (§6.3), con el mismo **punto de estado abajo a la derecha**. |
 | **Menú** | Se abre con un botón abajo a la izquierda (idéntico al de Folio: tres líneas horizontales) **o con atajo de teclado** (`Cmd/Ctrl+K`). Es un overlay tipo paleta de comandos. |
 | **Tema claro/oscuro** | Opción del menú. Mismos tokens de color que Folio. |
@@ -125,7 +125,7 @@ Se copian **literalmente** de Folio:
 A diferencia de Folio (donde las pestañas viven dentro de un panel modal), en to-do las tabs son la estructura principal. Se sitúan en la **parte superior** de la pantalla, en una franja discreta que no rompe la inmersión:
 
 - Fila única, siempre visible, que no ocupa más de lo necesario.
-- Las 10 tabs se reparten el ancho disponible sin desbordar: cada una mide como máximo `1/N` del espacio (`N = 10`, expuesto al CSS como `--note-tabs`, igual que en `Notes.ts` de Folio). Los títulos largos se recortan con puntos suspensivos; el título completo va en el `title` del botón.
+- Las tabs se reparten el ancho disponible sin desbordar: cada una mide como máximo `1/N` del espacio (`N = 10`, el máximo, expuesto al CSS como `--tab-count`), de modo que el hueco de cada tab mide lo mismo haya las que haya y crear una no mueve las demás. En pantallas estrechas (≤ 700 px) la barra se desplaza en horizontal y la tab activa se centra sola. Los títulos largos se recortan con puntos suspensivos; el título completo va en el `title` del botón.
 - Estilo de cada tab (igual que `.notes__tab` de Folio): texto pequeño (`0.72rem`), color `--fg-dim`, pill (`border-radius: 999px`), borde transparente; la tab activa usa color `--fg`, borde `--panel-border` y fondo `--sel`.
 - La franja de tabs respeta los mismos márgenes sutiles que el resto del chrome (opacidad atenuada que sube al interactuar, o simplemente discreta por defecto).
 
@@ -160,8 +160,9 @@ Cada tab es una sección delimitada por un marcador propio, al estilo de los blo
 ```markdown
 [todo:tab 1]
 Contenido de la primera tab.
-[todo:tab 4]
-Contenido de la cuarta tab (las vacías no se escriben).
+[todo:tab 2]
+[todo:tab 3]
+Contenido de la tercera tab (la segunda está vacía: solo su marcador).
 
 <!-- todo:diccionario
 Palabras que el corrector ortográfico de to-do acepta, una por línea.
@@ -174,9 +175,9 @@ Kaelith
 
 Reglas (equivalentes a `folioBlocks.ts`):
 
-- Marcador por tab: `[todo:tab N]` (`N` de 1 a 10) en línea propia. Las tabs vacías **no se escriben**.
+- Marcador por tab: `[todo:tab N]` (`N` = posición, de 1 a 10) en línea propia. Una tab vacía se escribe **solo con su marcador**, para que siga existiendo al reabrir; un documento con una única tab vacía queda vacío del todo.
 - Un archivo sin marcadores (texto plano cualquiera, o formato antiguo) se carga **entero en la tab 1**.
-- Al cargar, la sesión siempre tiene 10 tabs; las que falten quedan vacías, y al guardar siguen sin escribirse (el `.md` no cambia por el mero hecho de abrirlo).
+- Al cargar hay tantas tabs como indique el marcador más alto (mínimo 1); en archivos anteriores, que omitían las vacías, los huecos se leen como tabs vacías y nada cambia de sitio. Abrir y guardar un archivo ya en el formato actual no lo modifica.
 - El bloque `<!-- todo:diccionario ... -->` va **al final**, tras la última tab. Es un comentario HTML: cualquier visor Markdown lo ignora.
   - Dentro del bloque: marcador, líneas de descripción, línea vacía, y una palabra por línea.
   - Una línea es una palabra válida si no contiene espacios; el resto se ignora.
@@ -218,11 +219,13 @@ interface FileAdapter {
 
 ### 5.1. Comportamiento
 
-- 10 tabs fijas, numeradas 1–10.
+- Entre 1 y 10 tabs, numeradas por posición. Un archivo nuevo tiene una.
 - **Nombre**: primera palabra del contenido (`/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/u`, como `tabTitle` de Folio), truncada a 16 caracteres con `…` si es más larga; si la tab está vacía, su número (`1`…`10`).
 - Cambiar de tab: clic, o atajos (ver §9). Al cambiar, el editor muestra el contenido de la nueva tab y el foco vuelve al texto (cursor al final, como en `Notes.ts`).
 - Se recuerda la última tab activa durante la sesión (y puede persistirse en `localStorage`, clave `todo.lastTab`).
-- No hay creación ni borrado de tabs: siempre son 10.
+- **Crear**: opción «Crear tab» al final del menú, visible mientras haya menos de 10 tabs; añade una tab vacía al final y pasa a ella.
+- **Eliminar**: opción «Eliminar tab N» (N = la tab abierta) al final del menú, visible solo si la tab abierta está vacía (su nombre es su número) y no es la única; al elegirla se quita y pasa a estar activa la que ocupa su sitio (o la última). Nunca se borra texto: una tab con contenido no se puede eliminar.
+- Los atajos `Mod+N` y los dígitos con el menú abierto solo actúan si esa tab existe.
 
 ### 5.2. Datos
 
@@ -568,7 +571,7 @@ Adaptación de `session.ts` de Folio:
 
 ## 15. Criterios de aceptación
 
-1. La app muestra 10 tabs en la parte superior; la tab activa ocupa toda la pantalla (columna centrada estilo Folio) y **no hay botón Cerrar**.
+1. La app muestra las tabs en la parte superior (una en un archivo nuevo, hasta 10 con «Crear tab» en el menú; la abierta, si está vacía, se quita con «Eliminar tab N»); la tab activa ocupa toda la pantalla y **no hay botón Cerrar**.
 2. Tab vacía → nombre = número; tab con contenido → nombre = primera palabra (truncada a 16 chars).
 3. Autosave funcional con el punto de estado abajo a la derecha, mismos estados y comportamiento que Folio.
 4. Botón de menú abajo a la izquierda + `Cmd/Ctrl+K` abren el menú-overlay.

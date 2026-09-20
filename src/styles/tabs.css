@@ -1,10 +1,12 @@
 /*
  * Barra de tabs superior.
  *
- * Escritorio: las 10 tabs se reparten el ancho disponible sin desbordar. Cada tab mide como
- * mucho 1/N del espacio (N = --tab-count, que fija TabBar.ts), así entran siempre todas y los
- * títulos largos se recortan con puntos suspensivos. La barra es discreta por defecto y gana
- * contraste al pasar el ratón.
+ * Hay entre 1 y 10 tabs; se crean y se quitan desde el menú, la barra solo las muestra.
+ *
+ * Escritorio: cada tab mide como mucho 1/N del ancho (N = --tab-count, el máximo, que fija
+ * TabBar.ts), así entran siempre todas, el hueco de cada una mide lo mismo haya las que haya y
+ * los títulos largos se recortan con puntos suspensivos. La barra es discreta por defecto y
+ * gana contraste al pasar el ratón.
  *
  * Móvil (≤ 700px): no hay sitio para 10 títulos. Las tabs conservan su tamaño natural y la barra
  * se desplaza en horizontal con el dedo, con imán a cada tab; la activa se centra sola al cambiar
@@ -12,6 +14,7 @@
  */
 
 .tab-bar {
+  --tab-gap: min(0.25rem, 0.8vw);
   position: fixed;
   top: 0;
   left: 0;
@@ -20,7 +23,7 @@
   padding: 1.1rem 7rem 0 1.1rem; /* deja hueco a la marca «TO-DO» a la derecha */
   display: flex;
   align-items: flex-start;
-  gap: min(0.25rem, 0.8vw);
+  gap: var(--tab-gap);
   z-index: 5;
   /* Fondo opaco con el color del tema: el texto no debe verse por debajo al hacer scroll.
      Sin translucencia: la barra debe tapar por completo (sin stacking por opacity). */
@@ -31,7 +34,7 @@
 }
 
 .tab-bar__tab {
-  --tab-max: calc((100% - (var(--tab-count) - 1) * min(0.25rem, 0.8vw)) / var(--tab-count));
+  --tab-max: calc((100% - (var(--tab-count) - 1) * var(--tab-gap)) / var(--tab-count));
   flex: 0 1 auto;
   min-width: min(1.7rem, var(--tab-max));
   max-width: var(--tab-max);
@@ -64,10 +67,10 @@
 
 @media (max-width: 700px) {
   .tab-bar {
+    --tab-gap: 6px;
     /* Empieza bajo el notch; el alto total lo fija --tab-bar-height (tokens.css). */
     padding: calc(8px + var(--safe-top)) calc(1rem + var(--safe-right)) 8px calc(1rem + var(--safe-left));
     align-items: center;
-    gap: 6px;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x proximity;

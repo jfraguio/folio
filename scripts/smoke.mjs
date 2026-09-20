@@ -66,8 +66,14 @@ ok('marca TO-DO visible', (await page.locator('.brand').textContent()) === 'TO-D
 await page.getByRole('button', { name: 'NEW', exact: true }).click();
 await page.waitForSelector('.cm-editor');
 ok('editor creado tras Nuevo', true);
-ok('10 tabs en la barra', (await page.locator('.tab-bar__tab').count()) === 10);
+ok('un archivo nuevo tiene una sola tab', (await page.locator('.tab-bar__tab').count()) === 1);
 ok('tabs vacías se llaman por su número', (await page.locator('.tab-bar__tab').first().textContent()) === '1');
+// Con una única tab (vacía) el menú ofrece crear, pero no eliminar.
+await page.keyboard.press('Meta+k');
+await page.waitForSelector('.panel__item');
+let menuLabels = await page.locator('.panel__item .panel__label').allTextContents();
+ok('el menú ofrece «Crear tab» al final y no «Eliminar» con una sola tab', menuLabels.at(-1) === 'Crear tab' && !menuLabels.some((l) => l.startsWith('Eliminar tab')));
+await page.keyboard.press('Escape');
 
 // 3. Escribir en la tab 1: el título cambia a la primera palabra.
 await page.locator('.cm-content').click();
@@ -81,11 +87,32 @@ await page.waitForFunction(() => document.querySelector('.status-dot')?.dataset.
 const savedMd = await page.evaluate(() => window.__fsRead('to-do.md'));
 ok('autosave escribió el .md con el marcador de tab', savedMd?.includes('[todo:tab 1]') && savedMd.includes('Compra semanal'));
 
-// 5. Cambiar de tab con el clic: tab 2 activa y vacía.
-await page.locator('.tab-bar__tab').nth(1).click();
-ok('tab 2 activa tras clic', await page.locator('.tab-bar__tab').nth(1).evaluate((n) => n.classList.contains('tab-bar__tab--active')));
+// 5. Crear una tab desde el menú: pasa a estar activa y vacía; el menú ofrece eliminarla.
+const menuRun = async (label) => {
+  await page.keyboard.press('Meta+k');
+  await page.waitForSelector('.panel__item');
+  await page.getByRole('option', { name: label, exact: true }).click();
+  await page.waitForTimeout(100);
+};
+ok('con texto en la tab 1 el menú no ofrece eliminarla', !(await (async () => { await page.keyboard.press('Meta+k'); await page.waitForSelector('.panel__item'); const ls = await page.locator('.panel__item .panel__label').allTextContents(); await page.keyboard.press('Escape'); return ls; })()).some((l) => l.startsWith('Eliminar tab')));
+await menuRun('Crear tab');
+ok('«Crear tab» crea la tab 2 y la activa', (await page.locator('.tab-bar__tab').count()) === 2 && await page.locator('.tab-bar__tab').nth(1).evaluate((n) => n.classList.contains('tab-bar__tab--active')));
 const docTab2 = await page.locator('.cm-content').textContent();
 ok('tab 2 vacía', (docTab2 ?? '') === '');
+await page.keyboard.press('Meta+k');
+await page.waitForSelector('.panel__item');
+menuLabels = await page.locator('.panel__item .panel__label').allTextContents();
+ok('el menú ofrece «Eliminar tab 2» para la tab abierta vacía', menuLabels.includes('Eliminar tab 2'));
+await page.keyboard.press('Escape');
+// Eliminarla y volver a crearla: se vuelve a la tab 1 y luego a una tab 2 nueva.
+await menuRun('Eliminar tab 2');
+ok('«Eliminar tab 2» la quita y vuelve a la 1', (await page.locator('.tab-bar__tab').count()) === 1 && await page.locator('.tab-bar__tab').first().evaluate((n) => n.classList.contains('tab-bar__tab--active')));
+ok('la tab 1 conserva su texto tras eliminar la 2', (await page.locator('.cm-content').textContent())?.includes('Compra semanal'));
+await menuRun('Crear tab');
+// Cambiar de tab con el clic sigue funcionando.
+await page.locator('.tab-bar__tab').nth(0).click();
+await page.locator('.tab-bar__tab').nth(1).click();
+ok('tab 2 activa tras clic', await page.locator('.tab-bar__tab').nth(1).evaluate((n) => n.classList.contains('tab-bar__tab--active')));
 
 // 6. Escribir en tab 2 y volver con atajo ⌘1: el contenido de la 1 persiste.
 await page.keyboard.type('Ideas varias');
@@ -93,6 +120,9 @@ await page.waitForTimeout(100);
 await page.keyboard.press('Meta+1');
 await page.waitForTimeout(100);
 ok('atajo Mod+1 vuelve a la tab 1', await page.locator('.tab-bar__tab').first().evaluate((n) => n.classList.contains('tab-bar__tab--active')));
+await page.keyboard.press('Meta+5');
+await page.waitForTimeout(100);
+ok('Mod+N a una tab que no existe no hace nada', await page.locator('.tab-bar__tab').first().evaluate((n) => n.classList.contains('tab-bar__tab--active')));
 ok('contenido de la tab 1 intacto', (await page.locator('.cm-content').textContent())?.includes('Compra semanal'));
 
 // 7. Menú con ⌘K: las cuatro opciones en orden + pantalla completa (+ «Añadir palabra» condicional,
@@ -101,8 +131,8 @@ await page.keyboard.press('Meta+k');
 await page.waitForSelector('.panel__item');
 const labels = await page.locator('.panel__item .panel__label').allTextContents();
 const base = labels.filter((l) => !l.startsWith('Añadir'));
-ok('menú con Tema, corrector, Diccionario, Historial, Pantalla completa', JSON.stringify(base) === JSON.stringify([
-  'Tema oscuro', 'Desactivar corrector', 'Diccionario', 'Historial', 'Pantalla completa',
+ok('menú con Tema, corrector, Diccionario, Historial, Pantalla completa y Crear tab al final', JSON.stringify(base) === JSON.stringify([
+  'Tema oscuro', 'Desactivar corrector', 'Diccionario', 'Historial', 'Pantalla completa', 'Crear tab',
 ]));
 ok('menú ofrece añadir la palabra bajo el cursor', labels.some((l) => l.startsWith('Añadir «') && l.endsWith('» al diccionario')));
 
@@ -144,6 +174,7 @@ await page.waitForSelector('.cm-editor');
 await page.waitForTimeout(200);
 ok('contenido recuperado tras reabrir', (await page.locator('.cm-content').textContent())?.includes('Compra semanal'));
 ok('la tab recuerda su título al reabrir', (await page.locator('.tab-bar__tab').first().textContent()) === 'Compra');
+ok('el número de tabs se conserva al reabrir', (await page.locator('.tab-bar__tab').count()) === 2);
 ok('tema oscuro persiste tras recargar', await page.evaluate(() => document.documentElement.dataset.theme === 'dark'));
 
 await browser.close();
