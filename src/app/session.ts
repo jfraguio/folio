@@ -6,6 +6,7 @@ import { isTouch } from '../fs/detect';
 import { createEditor } from '../editor/createEditor';
 import { spellcheck, spellCompartment, wordAt } from '../editor/spellcheck';
 import { countDone } from '../editor/strikethrough';
+import { zen, zenCompartment } from '../editor/zen';
 import { Autosave } from '../persistence/autosave';
 import { FileWatcher } from '../persistence/fileWatcher';
 import { LiveDraft } from '../persistence/liveDraft';
@@ -14,7 +15,7 @@ import { resolveTodoId } from '../persistence/files';
 import { acquireTodoLock } from '../persistence/locks';
 import { PersonalDictionary } from '../persistence/dictionary';
 import { joinDocument, splitDocument, TAB_COUNT } from '../persistence/todoBlocks';
-import { prefs, FONT_SIZE_MAX, FONT_SIZE_MIN } from '../persistence/prefs';
+import { prefs } from '../persistence/prefs';
 import { requestPersistentStorage } from '../persistence/db';
 import { SpellService } from '../spell/SpellService';
 import { CommandRegistry, labelOf } from './commands';
@@ -186,6 +187,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       parent: editorRoot,
       doc: tabs[active] ?? '',
       spell: prefs.get('spellEnabled') ? spellExt.extension : [],
+      zen: prefs.get('zen'),
       extra: [
         EditorView.updateListener.of((u) => {
           if (!u.docChanged) return;
@@ -359,6 +361,15 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       if (prefs.get('spellEnabled')) void loadSpell().then(rescanSpell);
     };
 
+    /**
+     * Modo zen: la pref pone `html[data-zen]` (tabs y tipografía van por CSS); aquí se activan o
+     * quitan las extensiones del editor (sustituciones al teclear y focus mode).
+     */
+    const setZen = (on: boolean) => {
+      prefs.set('zen', on);
+      view.dispatch({ effects: zenCompartment.reconfigure(zen(on)) });
+    };
+
     // 9. El disco manda si es más nuevo.
     //
     // Política de concurrencia (el archivo vive en una carpeta sincronizada con iCloud Drive y se
@@ -472,10 +483,12 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
               items,
               onSelect: (item) => void commands.run(item.id),
               // Con el menú abierto, un número cambia directamente a esa tab (0 = la 10), si existe.
+              // En modo zen solo se ve la tab abierta: cambiar a otra desde aquí lo desactiva.
               onKey: (e) => {
                 if (!/^[0-9]$/.test(e.key)) return false;
                 const i = (Number(e.key) + 9) % TAB_COUNT;
                 if (i >= tabs.length) return false;
+                if (prefs.get('zen')) setZen(false);
                 switchTab(i);
                 return true;
               },
@@ -483,6 +496,13 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
             focusEditor,
           );
         },
+      },
+      // El modo zen va primero en el menú (el orden de registro es el del menú).
+      {
+        id: 'zen.toggle',
+        label: () => (prefs.get('zen') ? 'Desactivar modo zen' : 'Modo zen'),
+        keywords: 'concentración escribir folio tipografía',
+        run: () => setZen(!prefs.get('zen')),
       },
       {
         id: 'theme.toggle',
@@ -593,22 +613,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         label: 'Guardar como…',
         hidden: true, // se ofrece solo desde la recuperación de errores
         run: saveAs,
-      },
-      // Tamaño del texto: en escritorio solo por atajo (Mod+ / Mod-); en táctil, sin teclado
-      // físico, se ofrecen en el menú.
-      {
-        id: 'font.increase',
-        label: 'Aumentar tamaño del texto',
-        keywords: 'fuente letra zoom',
-        hidden: !touch,
-        run: () => prefs.set('fontSize', Math.min(FONT_SIZE_MAX, prefs.get('fontSize') + 1)),
-      },
-      {
-        id: 'font.decrease',
-        label: 'Reducir tamaño del texto',
-        keywords: 'fuente letra zoom',
-        hidden: !touch,
-        run: () => prefs.set('fontSize', Math.max(FONT_SIZE_MIN, prefs.get('fontSize') - 1)),
       },
       // Tabs por atajo (⌘1…⌘0 / Ctrl+1…Ctrl+0); no aparecen en el menú. Sin efecto si la tab no existe.
       ...Array.from({ length: TAB_COUNT }, (_, i) => ({

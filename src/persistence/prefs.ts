@@ -2,27 +2,25 @@ export type Theme = 'light' | 'dark' | 'system';
 
 export interface Prefs {
   theme: Theme;
-  fontSize: number;
   spellEnabled: boolean;
   lastTab: number;
+  /** Modo zen: solo la tab abierta, tipografía de Folio y sustituciones al teclear (— « »). */
+  zen: boolean;
 }
 
 const DEFAULTS: Prefs = {
   theme: 'system',
-  fontSize: 21,
   spellEnabled: true,
   lastTab: 0,
+  zen: false,
 };
 
 const KEYS: Record<keyof Prefs, string> = {
   theme: 'todo.theme',
-  fontSize: 'todo.fontSize',
   spellEnabled: 'todo.spell.enabled',
   lastTab: 'todo.lastTab',
+  zen: 'todo.zen',
 };
-
-export const FONT_SIZE_MIN = 16;
-export const FONT_SIZE_MAX = 28;
 
 type Listener = <K extends keyof Prefs>(key: K, value: Prefs[K]) => void;
 
@@ -86,18 +84,19 @@ export function applyTheme(theme: Theme): void {
     ?.setAttribute('content', dark ? THEME_COLORS.dark : THEME_COLORS.light);
 }
 
-export function applyFontSize(px: number): void {
-  document.documentElement.style.setProperty('--font-size', `${px}px`);
+/** El CSS del modo zen (tabs y editor) cuelga de `html[data-zen]`. */
+export function applyZen(on: boolean): void {
+  document.documentElement.toggleAttribute('data-zen', on);
 }
 
 export function initPrefsEffects(): void {
   applyTheme(prefs.get('theme'));
-  applyFontSize(prefs.get('fontSize'));
+  applyZen(prefs.get('zen'));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (prefs.get('theme') === 'system') applyTheme('system');
   });
   prefs.onChange((key, value) => {
     if (key === 'theme') applyTheme(value as Theme);
-    if (key === 'fontSize') applyFontSize(value as number);
+    if (key === 'zen') applyZen(value as boolean);
   });
 }

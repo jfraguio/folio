@@ -410,9 +410,9 @@ Los atajos se instalan con un listener global en fase de captura (igual que `ins
 
 No se incluye en la implementación inicial. Si se añadiera después, se copiaría `src/editor/focusMode.ts` de Folio sin cambios.
 
-### 10.4. Tamaño de texto (opcional)
+### 10.4. Tamaño de texto
 
-Se puede incluir `Cmd/Ctrl+=` / `Cmd/Ctrl+-` (16–28 px, `todo.fontSize`) copiando `prefs.ts` de Folio. No es requisito del enunciado; incluir solo si es gratis (lo es, son 10 líneas).
+Fijo, sin atajos ni preferencia (hubo `Cmd/Ctrl+=` / `Cmd/Ctrl+-` y `todo.fontSize`; se retiraron). Dos bases en `tokens.css`: `--ui: 19px` es el `rem` del cromo y del editor fuera del modo zen (que usa 0,8 de esa base, 15,2px); `--font-size: 21px` es el cuerpo de Folio, que el editor usa solo en modo zen.
 
 ### 10.5. Avisos (Notice)
 
@@ -427,9 +427,9 @@ Mensajes de una línea autodescartables abajo en el centro (`.notice` de Folio),
 | Clave | Valores |
 |---|---|
 | `todo.theme` | `light` \| `dark` \| `system` |
-| `todo.fontSize` | `16`–`28` (opcional) |
 | `todo.spell.enabled` | `true` \| `false` |
 | `todo.lastTab` | `0`–`9` |
+| `todo.zen` | `true` \| `false` |
 
 El atributo `data-theme` se aplica en `<html>` con un script inline en `index.html` antes del primer render (anti-parpadeo), igual que en Folio.
 

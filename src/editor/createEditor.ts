@@ -4,6 +4,7 @@ import { defaultKeymap, history, historyKeymap, insertTab } from '@codemirror/co
 import { spellCompartment } from './spellcheck';
 import { links } from './links';
 import { strikethrough } from './strikethrough';
+import { zen, zenCompartment } from './zen';
 
 export interface EditorOptions {
   parent: HTMLElement;
@@ -11,6 +12,8 @@ export interface EditorOptions {
   extra?: Extension[];
   /** Extensión inicial del compartimento de ortografía (vacía si está desactivado). */
   spell?: Extension;
+  /** Modo zen (sustituciones al teclear y focus mode). Desactivado por defecto. */
+  zen?: boolean;
 }
 
 export function createEditor(o: EditorOptions): EditorView {
@@ -30,6 +33,7 @@ export function createEditor(o: EditorOptions): EditorView {
       EditorState.tabSize.of(4),
       keymap.of([{ key: 'Tab', run: insertTab }, ...defaultKeymap, ...historyKeymap]),
       spellCompartment.of(o.spell ?? []),
+      zenCompartment.of(zen(o.zen ?? false)),
       ...(o.extra ?? []),
     ],
   });

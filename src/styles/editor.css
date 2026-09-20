@@ -8,16 +8,15 @@
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font);
-  /* Mismo tamaño que las notas de Folio (0.8 del cuerpo), no el cuerpo grande de novela.
-     Se calcula sobre --font-size (la preferencia del usuario), no sobre el rem del cromo. */
-  font-size: calc(var(--font-size) * 0.8);
+  /* Mismo tamaño que las notas de Folio (0.8 de la base), no el cuerpo grande de novela. */
+  font-size: calc(var(--ui) * 0.8);
   line-height: 1.55;
 }
 
 /* iOS hace zoom al enfocar cualquier campo con letra menor de 16px: en táctil no se baja de ahí. */
 @media (pointer: coarse) {
   .cm-editor {
-    font-size: max(16px, calc(var(--font-size) * 0.8));
+    font-size: max(16px, calc(var(--ui) * 0.8));
   }
 }
 
@@ -67,6 +66,67 @@
 .cm-editor .cm-line {
   padding: 0;
   transition: color var(--ease);
+}
+
+/* ---------- Modo zen: la tipografía de Folio en su modo normal ----------
+   Mismo cuerpo (--font-size sin el 0.8), interlineado (--line-height) y columna centrada de
+   38rem con padding «22vh 0 60vh» que el editor de Folio (src/styles/editor.css). La fuente ya
+   es la misma (--font). Solo el padding superior se asegura de no quedar bajo la barra de tabs,
+   y el inferior lo siguen fijando las reglas de arriba (60vh; en móvil, 45dvh). */
+
+html[data-zen] .cm-editor {
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+}
+
+html[data-zen] .cm-editor .cm-content {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding-top: max(22vh, calc(var(--tab-bar-height) + 0.5rem));
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* En móvil la columna de 38rem no cabe: sin margen lateral el texto tocaría los bordes. */
+@media (max-width: 700px) {
+  html[data-zen] .cm-editor .cm-content {
+    padding-left: calc(1rem + var(--safe-left));
+    padding-right: calc(1rem + var(--safe-right));
+  }
+}
+
+/* ---------- Modo zen: focus mode ----------
+   Estética de Folio (mismos colores --fg / --fg-dim), pero al revés que allí: el texto es siempre
+   tenue, y solo el párrafo activo (cm-focus-active: cursor colocado en una línea con texto) se ve
+   en color pleno. Sin párrafo activo (al abrir, tras un clic en los márgenes, o con el cursor en
+   una línea en blanco) todo el texto se ve tenue. */
+
+html[data-zen] .cm-editor .cm-content {
+  color: var(--fg-dim);
+}
+
+html[data-zen] .cm-editor.cm-focus-active .cm-active-para {
+  color: var(--fg);
+}
+
+/* Propio de to-do: en el párrafo activo, las líneas resueltas siguen atenuadas, y los enlaces
+   toman el color de su línea (tenues fuera del párrafo activo, normales dentro). */
+html[data-zen] .cm-editor.cm-focus-active .cm-active-para.cm-done {
+  color: var(--fg-dim);
+}
+
+html[data-zen] .cm-editor .cm-link {
+  color: inherit;
+}
+
+/* Sin cursor colocado en el texto (al abrir, o tras un clic en los márgenes) el cursor no se muestra.
+   El selector replica la especificidad de la regla base de CodeMirror que lo hace visible con el foco. */
+html[data-zen] .cm-editor.cm-focused:not(.cm-cursor-placed) > .cm-scroller > .cm-cursorLayer .cm-cursor {
+  display: none;
+}
+
+html[data-zen] .cm-editor:not(.cm-cursor-placed) .cm-content {
+  caret-color: transparent;
 }
 
 .cm-editor .cm-cursor, .cm-editor .cm-dropCursor {

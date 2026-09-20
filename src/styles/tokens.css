@@ -46,11 +46,10 @@
   --chrome-opacity-hover: 0.85;
 
   --font: 'iA Writer Quattro', 'IBM Plex Sans', system-ui, sans-serif;
-  /* Tamaño del texto del editor: lo cambia el usuario (Mod+/Mod-) y se guarda en prefs. */
+  /* Cuerpo del texto en modo zen (el de Folio). Fijo: no se puede cambiar desde la aplicación. */
   --font-size: 21px;
-  /* Base del cromo (tabs, marca, menú, botones): fija, para que el tamaño de letra del editor
-     no infle la interfaz. Coincide con el --font-size por defecto: en escritorio no cambia nada. */
-  --ui: 21px;
+  /* Base (rem) del cromo y del editor fuera del modo zen (0.8 de esta base). Fijo. */
+  --ui: 19px;
   --line-height: 1.65;
   --measure: 38rem;
   --ease: 120ms ease;
