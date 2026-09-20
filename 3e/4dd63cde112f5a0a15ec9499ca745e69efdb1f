@@ -1,0 +1,19 @@
+scripts/smoke.mjs
+  s_886dbbc95dd35b::t_6aa94c0d273fb7 138-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3e4dd63cde112f5a0a15ec9499ca745e69efdb1f",
+  "prompts": {},
+  "sessions": {
+    "s_886dbbc95dd35b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f422635beffeVcc7V4xldssh5y",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
