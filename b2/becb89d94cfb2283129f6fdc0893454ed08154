@@ -1,0 +1,23 @@
+scripts/smoke.mjs
+  s_886dbbc95dd35b::t_ba60a84e29ccf0 69,71-76,90-99,102-115,123-125,134-135,177
+specs.md
+  s_886dbbc95dd35b::t_a47d77a9d9f6b5 12,34,37,128,163-165,178,180,222,226-228,574
+tests/tabBar.test.ts
+  s_886dbbc95dd35b::t_1b884122815772 3,6-9,11-15,22-24,26,28,30-48,52-53,55-56,64-65,71,76-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "b2becb89d94cfb2283129f6fdc0893454ed08154",
+  "prompts": {},
+  "sessions": {
+    "s_886dbbc95dd35b": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f422635beffeVcc7V4xldssh5y",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
