@@ -14,6 +14,11 @@ const LABELS: Record<DotState, string> = {
 
 type StatusListener = (state: DotState, lastSaved?: number) => void;
 
+/** Texto legible del estado del guardado (el del tooltip del punto y el de la fila del menú en móvil). */
+export function describeStatus(state: DotState, lastSaved?: number | null): string {
+  return state === 'saved' && lastSaved ? `Guardado ${relativeTime(lastSaved)}` : LABELS[state];
+}
+
 /** Último estado del guardado, observable: lo comparten todos los puntos de estado de la sesión. */
 export class SaveStatus {
   state: DotState = 'idle';
@@ -66,7 +71,6 @@ export class StatusDot {
   }
 
   private refreshTip(): void {
-    this.tip.textContent =
-      this.state === 'saved' && this.lastSaved ? `Guardado ${relativeTime(this.lastSaved)}` : LABELS[this.state];
+    this.tip.textContent = describeStatus(this.state, this.lastSaved);
   }
 }

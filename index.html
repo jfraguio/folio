@@ -2,10 +2,23 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: la app se extiende bajo el notch y usa safe-area-inset-*.
+         interactive-widget=resizes-content: el teclado virtual reduce el viewport (Chrome Android)
+         en vez de taparlo, así el editor no queda oculto detrás. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta name="color-scheme" content="light dark" />
+    <!-- Color de la barra del navegador/PWA; lo actualiza applyTheme() al cambiar de tema. -->
+    <meta name="theme-color" content="#f5f4f0" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="TO-DO" />
     <title>TO-DO</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <script>
       // Aplica el tema antes del primer render para evitar parpadeo.
       (function () {
@@ -13,6 +26,8 @@
           var t = localStorage.getItem('todo.theme') || 'system';
           var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          var tc = document.querySelector('meta[name="theme-color"]');
+          if (tc) tc.setAttribute('content', dark ? '#111111' : '#f5f4f0');
           var fs = localStorage.getItem('todo.fontSize');
           if (fs) document.documentElement.style.setProperty('--font-size', fs + 'px');
         } catch (e) {}

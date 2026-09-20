@@ -1,9 +1,11 @@
 import { el } from './el';
 import { prettyShortcut } from '../app/shortcuts';
+import { isTouch } from '../fs/detect';
 
-/** Botón sutil, abajo a la izquierda, que abre el menú. */
+/** Botón sutil, abajo a la derecha, que abre el menú. */
 export function createMenuButton(onClick: () => void): HTMLButtonElement {
-  const shortcut = prettyShortcut('Mod-k');
+  // Sin teclado físico el atajo no aporta nada.
+  const label = isTouch() ? 'Menú' : `Menú (${prettyShortcut('Mod-k')})`;
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 14 10');
   svg.setAttribute('width', '14');
@@ -21,8 +23,8 @@ export function createMenuButton(onClick: () => void): HTMLButtonElement {
     'button',
     {
       class: 'menu-button',
-      title: `Menú (${shortcut})`,
-      attrs: { 'aria-label': `Menú (${shortcut})` },
+      title: label,
+      attrs: { 'aria-label': label },
       on: { click: onClick },
     },
     svg,

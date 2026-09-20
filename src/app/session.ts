@@ -2,6 +2,7 @@ import { EditorView } from '@codemirror/view';
 import type { FileAdapter, TodoFile } from '../fs/FileAdapter';
 import { FsAccessAdapter } from '../fs/FsAccessAdapter';
 import { download } from '../fs/FallbackAdapter';
+import { isTouch } from '../fs/detect';
 import { createEditor } from '../editor/createEditor';
 import { spellcheck, spellCompartment, wordAt } from '../editor/spellcheck';
 import { countDone } from '../editor/strikethrough';
@@ -18,11 +19,11 @@ import { requestPersistentStorage } from '../persistence/db';
 import { SpellService } from '../spell/SpellService';
 import { CommandRegistry, labelOf } from './commands';
 import { installShortcuts, shortcutFor } from './shortcuts';
-import { SaveStatus, StatusDot } from '../ui/StatusDot';
+import { SaveStatus, StatusDot, describeStatus } from '../ui/StatusDot';
 import { createMenuButton } from '../ui/MenuButton';
 import { TabBar } from '../ui/TabBar';
 import { notice } from '../ui/Notice';
-import { openMenu, closeOverlay, isOverlayOpen } from '../ui/Menu';
+import { openMenu, closeOverlay, isOverlayOpen, type MenuItem } from '../ui/Menu';
 import { openDialog } from '../ui/Dialog';
 import { openDictionaryManager } from '../ui/DictionaryManager';
 import { openHistory } from '../ui/History';
@@ -48,6 +49,9 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
   const { adapter, root } = o;
   let file = o.file;
   const degraded = !adapter.capabilities.directWrite;
+  // En táctil enfocar el editor abre el teclado virtual, que tapa media pantalla: solo se hace
+  // cuando el usuario ya estaba escribiendo (o cuando toca el propio editor, que lo hace solo).
+  const touch = isTouch();
 
   // 1. Leer y normalizar. `raw` es el archivo tal cual (con el bloque del diccionario, si lo hay).
   let { text: raw, mtime } = await adapter.read(file);
@@ -171,6 +175,12 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     });
     root.appendChild(tabBar.root);
     disposers.push(() => tabBar.root.remove());
+    // La barra no debe robar el foco al editor: así al pulsar una tab el cursor (y en táctil el
+    // teclado) siguen donde estaban. `editorHadFocus` se toma antes de que el toque pueda
+    // desenfocar nada, porque en algunos navegadores el botón ya tiene el foco en el `click`.
+    let editorHadFocus = false;
+    tabBar.root.addEventListener('pointerdown', () => (editorHadFocus = view.hasFocus), true);
+    tabBar.root.addEventListener('mousedown', (e) => e.preventDefault());
 
     const view = createEditor({
       parent: editorRoot,
@@ -190,8 +200,11 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
 
     /** Cambia la tab activa: guarda el contenido actual y carga el de la nueva. */
     function switchTab(i: number): void {
+      // En táctil, si el teclado estaba cerrado, tocar una tab no debe abrirlo.
+      const keepFocus = !touch || view.hasFocus || editorHadFocus;
+      editorHadFocus = false;
       if (i === active) {
-        view.focus();
+        if (keepFocus) view.focus();
         return;
       }
       tabs[active] = view.state.doc.toString();
@@ -203,7 +216,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       });
       tabBar.setActive(i);
       refreshDone();
-      view.focus();
+      if (keepFocus) view.focus();
     }
 
     /** Texto que va al disco: las tabs más el bloque del diccionario (si tiene contenido). */
@@ -217,7 +230,9 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       else saveStatus.set('degraded');
     };
 
-    view.focus();
+    // En escritorio se puede empezar a escribir nada más abrir; en táctil se espera a que el
+    // usuario toque el texto, para no levantar el teclado sobre lo que acaba de abrir.
+    if (!touch) view.focus();
     // El cursor arranca al final de la tab activa.
     view.dispatch({ selection: { anchor: view.state.doc.length } });
 
@@ -362,7 +377,11 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     if (fsAdapter) watcher.start();
 
     // 10. Comandos.
-    const focusEditor = () => view.focus();
+    // Al cerrar un panel, en escritorio el cursor vuelve al texto; en táctil no, porque eso
+    // levantaría el teclado tras elegir, p. ej., «Tema oscuro».
+    const focusEditor = () => {
+      if (!touch) view.focus();
+    };
 
     const saveAs = async () => {
       const t = getText();
@@ -387,10 +406,16 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
             closeOverlay();
             return;
           }
-          const items = commands
+          const items: MenuItem[] = commands
             .visible()
             .filter((c) => c.id !== 'menu' && !c.id.startsWith('tab.'))
-            .map((c) => ({ id: c.id, label: labelOf(c), meta: c.shortcut ?? shortcutFor(c.id), keywords: c.keywords }));
+            // En táctil no hay teclado físico: los atajos a la derecha solo estorban.
+            .map((c) => ({ id: c.id, label: labelOf(c), meta: touch ? undefined : (c.shortcut ?? shortcutFor(c.id)) }));
+          // Sin ratón no hay tooltip en el punto de estado: el estado del guardado se lee aquí.
+          if (touch) {
+            const status = describeStatus(saveStatus.state, saveStatus.lastSaved);
+            if (status) items.unshift({ id: 'status', label: status, info: true });
+          }
           openMenu(
             {
               items,
@@ -444,6 +469,8 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       {
         id: 'fullscreen',
         label: () => (document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa'),
+        // iPhone no tiene API de pantalla completa: mejor no ofrecerla que fallar al elegirla.
+        when: () => typeof document.documentElement.requestFullscreen === 'function',
         run: async () => {
           try {
             if (document.fullscreenElement) await document.exitFullscreen();
@@ -513,16 +540,20 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         hidden: true, // se ofrece solo desde la recuperación de errores
         run: saveAs,
       },
+      // Tamaño del texto: en escritorio solo por atajo (Mod+ / Mod-); en táctil, sin teclado
+      // físico, se ofrecen en el menú.
       {
         id: 'font.increase',
         label: 'Aumentar tamaño del texto',
-        hidden: true, // solo por atajo
+        keywords: 'fuente letra zoom',
+        hidden: !touch,
         run: () => prefs.set('fontSize', Math.min(FONT_SIZE_MAX, prefs.get('fontSize') + 1)),
       },
       {
         id: 'font.decrease',
         label: 'Reducir tamaño del texto',
-        hidden: true, // solo por atajo
+        keywords: 'fuente letra zoom',
+        hidden: !touch,
         run: () => prefs.set('fontSize', Math.max(FONT_SIZE_MIN, prefs.get('fontSize') - 1)),
       },
       // Tabs por atajo (⌘1…⌘0 / Ctrl+1…Ctrl+0); no aparecen en el menú.

@@ -11,11 +11,20 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font);
-  font-size: var(--font-size);
+  /* El rem es la base del cromo, no el tamaño del editor (ver tokens.css). */
+  font-size: var(--ui);
   line-height: var(--line-height);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   transition: background-color var(--ease), color var(--ease);
+}
+
+/* En móvil el alto real cambia con el teclado virtual: dvh sigue al viewport visible. */
+@supports (height: 100dvh) {
+  html,
+  body {
+    height: 100dvh;
+  }
 }
 
 #app {
@@ -29,6 +38,9 @@ button {
   border: 0;
   padding: 0;
   cursor: pointer;
+  /* Sin el flash gris de los toques en Android/iOS ni el retardo del doble toque. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 button:focus-visible,
@@ -59,7 +71,8 @@ input:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 2.5rem;
-  padding: 2rem;
+  padding: calc(2rem + var(--safe-top)) calc(2rem + var(--safe-right)) calc(2rem + var(--safe-bottom))
+    calc(2rem + var(--safe-left));
 }
 
 .start__actions {
@@ -79,8 +92,18 @@ input:focus-visible {
   transition: color var(--ease), opacity var(--ease);
 }
 
-.start__action:hover {
-  opacity: 0.7;
+@media (hover: hover) {
+  .start__action:hover {
+    opacity: 0.7;
+  }
+}
+
+/* En táctil los botones de inicio deben ser fáciles de acertar. */
+@media (pointer: coarse) {
+  .start__action {
+    min-height: var(--touch-target);
+    padding: 0.25rem 1rem;
+  }
 }
 
 .start__action--secondary {
@@ -100,8 +123,8 @@ input:focus-visible {
 
 .corner-right {
   position: fixed;
-  right: 1.1rem;
-  bottom: 1.1rem;
+  right: calc(1.1rem + var(--safe-right));
+  bottom: calc(1.1rem + var(--safe-bottom));
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -114,6 +137,26 @@ input:focus-visible {
   display: grid;
   place-items: center;
   border-radius: 50%;
+}
+
+/* En táctil los controles de 22px se amplían hasta el área mínima sin cambiar su dibujo:
+   el pseudo-elemento invisible recoge los toques alrededor. */
+@media (pointer: coarse) {
+  .status-dot,
+  .menu-button {
+    position: relative;
+  }
+
+  .status-dot::before,
+  .menu-button::before {
+    content: '';
+    position: absolute;
+    inset: calc((22px - var(--touch-target)) / 2);
+  }
+
+  .corner-right {
+    gap: 1rem;
+  }
 }
 
 .status-dot::after {
@@ -153,17 +196,22 @@ input:focus-visible {
   transition: opacity var(--ease);
 }
 
-.status-dot:hover .status-dot__tip,
 .status-dot:focus-visible .status-dot__tip {
   opacity: 1;
+}
+
+@media (hover: hover) {
+  .status-dot:hover .status-dot__tip {
+    opacity: 1;
+  }
 }
 
 /* ---------- Marca ---------- */
 
 .brand {
   position: fixed;
-  top: 1.1rem;
-  right: 1.1rem;
+  top: calc(1.1rem + var(--safe-top));
+  right: calc(1.1rem + var(--safe-right));
   margin: 0;
   height: 22px;
   line-height: 22px;
@@ -180,8 +228,8 @@ input:focus-visible {
 /* Contador de TO-DOs resueltos, en rojo, a la izquierda de la marca. */
 .done-count {
   position: fixed;
-  top: 1.1rem;
-  right: 4.2rem; /* a la izquierda de la marca «TO-DO» */
+  top: calc(1.1rem + var(--safe-top));
+  right: calc(4.2rem + var(--safe-right)); /* a la izquierda de la marca «TO-DO» */
   margin: 0;
   height: 22px;
   line-height: 22px;
@@ -192,6 +240,21 @@ input:focus-visible {
   opacity: var(--chrome-opacity-hover);
   user-select: none;
   z-index: 5;
+}
+
+/* En pantallas estrechas la barra superior es toda para las tabs: la marca se retira y el
+   contador baja a la esquina inferior izquierda, simétrico al estado y al menú. */
+@media (max-width: 700px) {
+  .brand {
+    display: none;
+  }
+
+  .done-count {
+    top: auto;
+    right: auto;
+    left: calc(1.1rem + var(--safe-left));
+    bottom: calc(1.1rem + var(--safe-bottom));
+  }
 }
 
 /* ---------- Botón de menú ---------- */
@@ -208,9 +271,14 @@ input:focus-visible {
   transition: opacity var(--ease);
 }
 
-.menu-button:hover,
 .menu-button:focus-visible {
   opacity: var(--chrome-opacity-hover);
+}
+
+@media (hover: hover) {
+  .menu-button:hover {
+    opacity: var(--chrome-opacity-hover);
+  }
 }
 
 .menu-button svg line {
@@ -223,7 +291,7 @@ input:focus-visible {
 .notice {
   position: fixed;
   left: 50%;
-  bottom: 1.4rem;
+  bottom: calc(1.4rem + var(--safe-bottom));
   transform: translateX(-50%);
   font-size: 0.78rem;
   color: var(--fg-dim);
@@ -236,6 +304,13 @@ input:focus-visible {
   z-index: 6;
   max-width: 90vw;
   text-align: center;
+}
+
+/* En móvil el aviso no debe tapar los controles de las esquinas. */
+@media (max-width: 700px) {
+  .notice {
+    bottom: calc(3.4rem + var(--safe-bottom));
+  }
 }
 
 .notice--visible {

@@ -46,10 +46,31 @@
   --chrome-opacity-hover: 0.85;
 
   --font: 'iA Writer Quattro', 'IBM Plex Sans', system-ui, sans-serif;
+  /* Tamaño del texto del editor: lo cambia el usuario (Mod+/Mod-) y se guarda en prefs. */
   --font-size: 21px;
+  /* Base del cromo (tabs, marca, menú, botones): fija, para que el tamaño de letra del editor
+     no infle la interfaz. Coincide con el --font-size por defecto: en escritorio no cambia nada. */
+  --ui: 21px;
   --line-height: 1.65;
   --measure: 38rem;
   --ease: 120ms ease;
+
+  /* Bordes seguros (notch, barra de gestos). Valen 0 fuera de móvil. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  /* Altura de la barra de tabs; el editor la usa para su padding superior. */
+  --tab-bar-height: 2.9rem;
+  /* Área mínima de un control táctil. */
+  --touch-target: 44px;
+}
+
+/* Pantallas estrechas: barra de tabs con scroll horizontal, más alta y con hueco para el notch. */
+@media (max-width: 700px) {
+  :root {
+    --tab-bar-height: calc(52px + var(--safe-top));
+  }
 }
 
 :root[data-theme='dark'] {

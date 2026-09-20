@@ -16,10 +16,10 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['fonts/*.woff2', 'icon.svg'],
+      includeAssets: ['fonts/*.woff2', 'icon.svg', 'apple-touch-icon.png'],
       workbox: {
         // El diccionario pesa ~1 MB; se cachea en runtime, no en precache.
-        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
@@ -39,7 +39,14 @@ export default defineConfig({
         display: 'standalone',
         background_color: '#F5F4F0',
         theme_color: '#F5F4F0',
-        icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+        // PNG generados con `npm run icons` a partir de icon.svg: iOS no acepta SVG y Android
+        // necesita la variante enmascarable para recortar su forma.
+        icons: [
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
         file_handlers: [
           {
             action: base,

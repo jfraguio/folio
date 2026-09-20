@@ -8,9 +8,17 @@
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font);
-  /* Mismo tamaño que las notas de Folio (0.8rem), no el cuerpo grande de novela. */
-  font-size: 0.8rem;
+  /* Mismo tamaño que las notas de Folio (0.8 del cuerpo), no el cuerpo grande de novela.
+     Se calcula sobre --font-size (la preferencia del usuario), no sobre el rem del cromo. */
+  font-size: calc(var(--font-size) * 0.8);
   line-height: 1.55;
+}
+
+/* iOS hace zoom al enfocar cualquier campo con letra menor de 16px: en táctil no se baja de ahí. */
+@media (pointer: coarse) {
+  .cm-editor {
+    font-size: max(16px, calc(var(--font-size) * 0.8));
+  }
 }
 
 .cm-editor.cm-focused {
@@ -22,6 +30,9 @@
   line-height: inherit;
   overflow-y: auto;
   scrollbar-width: none;
+  /* Scroll con inercia en iOS y sin que un gesto vertical dispare el "pull to refresh". */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .cm-editor .cm-scroller::-webkit-scrollbar {
@@ -30,13 +41,27 @@
 
 .cm-editor .cm-content {
   /* Aprovecha todo el ancho con un padding horizontal pequeño, como el textarea de notas.
-     El padding superior deja libre la franja fija de la barra de tabs (~2.9rem). */
+     El padding superior deja libre la franja fija de la barra de tabs; el inferior permite
+     escribir con la línea activa a media pantalla. */
   max-width: none;
   margin: 0;
-  padding: 3.4rem 1rem 60vh;
+  padding: calc(var(--tab-bar-height) + 0.5rem) calc(1rem + var(--safe-right)) 60vh calc(1rem + var(--safe-left));
   caret-color: var(--fg);
   color: var(--fg);
   transition: color var(--ease);
+}
+
+/* Con el teclado virtual abierto el viewport encoge: dvh lo sigue y el padding no se dispara. */
+@supports (height: 100dvh) {
+  .cm-editor .cm-content {
+    padding-bottom: 60dvh;
+  }
+}
+
+@media (max-width: 700px) {
+  .cm-editor .cm-content {
+    padding-bottom: 45dvh;
+  }
 }
 
 .cm-editor .cm-line {
@@ -71,8 +96,10 @@
   cursor: pointer;
 }
 
-.cm-link:hover {
-  text-decoration-color: var(--fg);
+@media (hover: hover) {
+  .cm-link:hover {
+    text-decoration-color: var(--fg);
+  }
 }
 
 /* ---------- TO-DOs resueltos (líneas que empiezan por --) ---------- */

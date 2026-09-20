@@ -6,6 +6,7 @@
   "description": "Un bloc de notas persistente y silencioso.",
   "scripts": {
     "dict": "node scripts/copy-dictionaries.mjs",
+    "icons": "node scripts/icons.mjs",
     "predev": "npm run dict",
     "dev": "vite",
     "prebuild": "npm run dict",
@@ -32,6 +33,7 @@
     "@types/nspell": "^2.1.0",
     "@types/wicg-file-system-access": "^2023.10.5",
     "fake-indexeddb": "^6.0.0",
+    "happy-dom": "^20.14.5",
     "typescript": "^5.6.0",
     "vite": "^5.4.0",
     "vite-plugin-pwa": "^0.20.5",

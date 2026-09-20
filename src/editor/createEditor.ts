@@ -21,6 +21,9 @@ export function createEditor(o: EditorOptions): EditorView {
       drawSelection(),
       highlightSpecialChars(),
       EditorView.lineWrapping,
+      // El corrector es el propio (nspell): sin el subrayado nativo por encima. En móvil, además,
+      // el autocorrector y las mayúsculas automáticas del teclado reescribirían lo que se teclea.
+      EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
       // Sin interpretación de Markdown: el texto se muestra tal cual (plano).
       links(),
       strikethrough(),

@@ -3,7 +3,8 @@ import type { TodoFileRecord } from '../persistence/db';
 
 export interface StartScreenOptions {
   degraded: boolean;
-  mobile: boolean;
+  /** Dispositivo táctil: el aviso de modo degradado no debe sugerir cambiar de navegador. */
+  touch?: boolean;
   last: TodoFileRecord | null;
   onOpen: () => void;
   onCreate: () => void;
@@ -31,9 +32,10 @@ export function renderStartScreen(root: HTMLElement, o: StartScreenOptions): voi
         el(
           'p',
           { class: 'start__note' },
-          'Tu navegador no permite guardar directamente en el archivo. to-do guardará un borrador local y podrás descargar el .md cuando quieras. Para la experiencia completa, usa Chrome o Edge.',
+          o.touch
+            ? 'En el móvil los cambios se guardan como borrador en este navegador; puedes descargar el .md desde el menú cuando quieras.'
+            : 'Tu navegador no permite guardar directamente en el archivo. to-do guardará un borrador local y podrás descargar el .md cuando quieras. Para la experiencia completa, usa Chrome o Edge.',
         ),
-      o.mobile && el('p', { class: 'start__note' }, 'to-do está pensado para escritorio.'),
     ),
   );
 }

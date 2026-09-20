@@ -4,7 +4,7 @@ import './styles/editor.css';
 import './styles/overlays.css';
 import './styles/tabs.css';
 
-import { createAdapter, hasFsAccess, isMobile } from './fs/detect';
+import { createAdapter, hasFsAccess, applyTouchFlag, isTouch } from './fs/detect';
 import { DEFAULT_TODO_CONTENT, type TodoFile } from './fs/FileAdapter';
 import { FsAccessAdapter } from './fs/FsAccessAdapter';
 import { initPrefsEffects } from './persistence/prefs';
@@ -18,6 +18,7 @@ const root = document.getElementById('app')!;
 const adapter = createAdapter();
 
 initPrefsEffects();
+applyTouchFlag();
 document.body.appendChild(el('h1', { class: 'brand' }, 'TO-DO'));
 
 /** Sesión de edición viva, si la hay. Solo puede haber una: abrir otro archivo cierra la anterior. */
@@ -33,7 +34,7 @@ async function showStart(): Promise<void> {
   if (gen !== generation) return;
   renderStartScreen(root, {
     degraded: !hasFsAccess(),
-    mobile: isMobile(),
+    touch: isTouch(),
     last,
     onOpen: async () => {
       const f = await adapter.open().catch(fail);

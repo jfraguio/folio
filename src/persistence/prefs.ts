@@ -72,11 +72,18 @@ function safeGet(k: string): string | null {
 
 export const prefs = new PrefsStore();
 
+/** Colores de fondo de cada tema (los mismos que --bg en tokens.css), para la barra del navegador. */
+const THEME_COLORS = { light: '#f5f4f0', dark: '#111111' } as const;
+
 /** Aplica el tema al documento y escucha cambios del sistema si procede. */
 export function applyTheme(theme: Theme): void {
   const dark =
     theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  // En móvil y PWA la barra de estado/navegador toma este color: debe acompañar al tema.
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', dark ? THEME_COLORS.dark : THEME_COLORS.light);
 }
 
 export function applyFontSize(px: number): void {

@@ -5,6 +5,8 @@ export interface MenuItem {
   label: string;
   /** Texto secundario a la derecha (atajo…). */
   meta?: string;
+  /** Fila solo informativa (p. ej. el estado del guardado): no se selecciona ni se resalta. */
+  info?: boolean;
 }
 
 export interface MenuOptions {
@@ -58,8 +60,16 @@ export function openOverlay(panel: HTMLElement, o: OverlayOptions = {}): { close
     o.onClose?.();
     o.restoreFocus?.();
   };
-  overlay.addEventListener('mousedown', (e) => {
+  // Cierre al pulsar fuera del panel. Se espera al `click` (no a `pointerdown`): si el overlay
+  // desapareciera antes, el resto del toque caería sobre el editor y lo enfocaría (teclado).
+  overlay.addEventListener('click', (e) => {
     if (e.target === overlay) close();
+  });
+  // Un clic en el panel no debe mover la selección del documento: si lo hiciera, al cerrar el
+  // overlay el navegador dejaría el caret al principio del editor y CodeMirror lo tomaría por un
+  // movimiento del usuario. Los campos de texto (si los hubiera) sí necesitan el comportamiento nativo.
+  overlay.addEventListener('mousedown', (e) => {
+    if (!(e.target as HTMLElement).closest('input, textarea, [contenteditable]')) e.preventDefault();
   });
   document.addEventListener('keydown', onKey, true);
   document.body.appendChild(overlay);
@@ -76,7 +86,13 @@ export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
   const panel = el('div', { class: 'panel' }, list);
 
   const filtered: MenuItem[] = o.items;
-  let active = 0;
+  const selectable = (i: number) => filtered[i] !== undefined && !filtered[i]!.info;
+  /** Siguiente fila seleccionable a partir de `from` en la dirección `dir`, o `from` si no hay. */
+  const step = (from: number, dir: 1 | -1) => {
+    for (let i = from + dir; i >= 0 && i < filtered.length; i += dir) if (selectable(i)) return i;
+    return from;
+  };
+  let active = selectable(0) ? 0 : step(0, 1);
 
   const render = () => {
     clear(list);
@@ -88,12 +104,17 @@ export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
       const li = el(
         'li',
         {
-          class: ['panel__item', i === active && 'panel__item--active'].filter(Boolean).join(' '),
-          attrs: { role: 'option', 'aria-selected': String(i === active) },
+          class: ['panel__item', item.info && 'panel__item--info', i === active && 'panel__item--active']
+            .filter(Boolean)
+            .join(' '),
+          attrs: { role: 'option', 'aria-selected': String(i === active), ...(item.info ? { 'aria-disabled': 'true' } : {}) },
           on: {
-            click: () => select(item),
-            mousemove: () => {
-              if (active !== i) {
+            click: () => {
+              if (!item.info) select(item);
+            },
+            // Solo el ratón resalta al pasar por encima; el dedo que hace scroll no.
+            pointermove: (e) => {
+              if (e.pointerType === 'mouse' && !item.info && active !== i) {
                 active = i;
                 render();
               }
@@ -121,16 +142,16 @@ export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      active = Math.min(active + 1, filtered.length - 1);
+      active = step(active, 1);
       render();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      active = Math.max(active - 1, 0);
+      active = step(active, -1);
       render();
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const item = filtered[active];
-      if (item) select(item);
+      if (item && !item.info) select(item);
     }
   });
 

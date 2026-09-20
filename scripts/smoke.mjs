@@ -63,7 +63,7 @@ ok('pantalla inicial con Abrir/Nuevo', (await page.locator('.start__action').cou
 ok('marca TO-DO visible', (await page.locator('.brand').textContent()) === 'TO-DO');
 
 // 2. Nuevo archivo → entra en el editor.
-await page.getByRole('button', { name: 'Nuevo', exact: true }).click();
+await page.getByRole('button', { name: 'NEW', exact: true }).click();
 await page.waitForSelector('.cm-editor');
 ok('editor creado tras Nuevo', true);
 ok('10 tabs en la barra', (await page.locator('.tab-bar__tab').count()) === 10);
@@ -120,7 +120,7 @@ ok('corrector marca la palabra errónea', misspelled >= 1);
 // 10. Diccionario desde el menú (vacío por ahora).
 await page.keyboard.press('Meta+k');
 await page.waitForSelector('.panel__item');
-await page.getByRole('option', { name: 'Diccionario' }).click();
+await page.getByRole('option', { name: 'Diccionario', exact: true }).click();
 await page.waitForSelector('.dict');
 ok('panel de diccionario abierto', (await page.locator('.panel__footer').first().textContent())?.includes('Diccionario personal'));
 await page.keyboard.press('Escape');
@@ -139,7 +139,7 @@ await page.keyboard.press('Escape');
 // (Con handles falsos no clonables no hay «Continuar»; se reabre con «Abrir», como en el smoke de Folio.)
 await page.reload({ waitUntil: 'load' });
 await page.waitForSelector('.start__action');
-await page.getByRole('button', { name: 'Abrir', exact: true }).click();
+await page.getByRole('button', { name: 'OPEN', exact: true }).click();
 await page.waitForSelector('.cm-editor');
 await page.waitForTimeout(200);
 ok('contenido recuperado tras reabrir', (await page.locator('.cm-content').textContent())?.includes('Compra semanal'));
