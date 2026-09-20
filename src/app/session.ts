@@ -540,7 +540,8 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           return w ? `Añadir «${w.word}» al diccionario` : 'Añadir palabra al diccionario';
         },
         keywords: 'ortografía aceptar palabra',
-        when: () => wordAt(view, view.state.selection.main.head) !== null,
+        // Solo con el corrector activado (como «Diccionario») y con una palabra bajo el cursor.
+        when: () => prefs.get('spellEnabled') && wordAt(view, view.state.selection.main.head) !== null,
         run: async () => {
           const w = wordAt(view, view.state.selection.main.head);
           if (!w) return;

@@ -135,6 +135,18 @@ ok('menú con Tema, corrector, Diccionario, Historial, Pantalla completa y Crear
   'Tema oscuro', 'Desactivar corrector', 'Diccionario', 'Historial', 'Pantalla completa', 'Crear tab',
 ]));
 ok('menú ofrece añadir la palabra bajo el cursor', labels.some((l) => l.startsWith('Añadir «') && l.endsWith('» al diccionario')));
+// Con el corrector desactivado, «Añadir … al diccionario» (y «Diccionario») no se ofrecen.
+await page.getByRole('option', { name: 'Desactivar corrector', exact: true }).click();
+await page.waitForTimeout(100);
+await page.keyboard.press('Meta+k');
+await page.waitForSelector('.panel__item');
+const offLabels = await page.locator('.panel__item .panel__label').allTextContents();
+ok('sin corrector no se ofrece añadir palabra al diccionario', !offLabels.some((l) => l.startsWith('Añadir')) && !offLabels.includes('Diccionario'));
+await page.getByRole('option', { name: 'Activar corrector', exact: true }).click();
+await page.waitForTimeout(100);
+await page.keyboard.press('Meta+k');
+await page.waitForSelector('.panel__item');
+ok('al reactivar el corrector vuelve la opción', (await page.locator('.panel__item .panel__label').allTextContents()).some((l) => l.startsWith('Añadir «')));
 
 // 8. Tema oscuro desde el menú.
 await page.getByRole('option', { name: 'Tema oscuro' }).click();
