@@ -47,10 +47,13 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
+        // Archivos que la app instalada se ofrece a abrir desde el sistema: los `.txt` propios y
+        // los `.md` de versiones anteriores. Registrar `.txt` hace que el sistema ofrezca to-do para
+        // cualquier `.txt`; un texto plano ajeno se carga en la tab 1 sin romper nada.
         file_handlers: [
           {
             action: base,
-            accept: { 'text/markdown': ['.md', '.markdown'] },
+            accept: { 'text/plain': ['.txt'], 'text/markdown': ['.md', '.markdown'] },
           },
         ],
       } as never,

@@ -1,9 +1,11 @@
 import type { FileAdapter, TodoFile } from './FileAdapter';
-import { normalizeText } from './FileAdapter';
+import { DEFAULT_TODO_NAME, normalizeText, TODO_EXTENSION, TODO_MIME } from './FileAdapter';
 
-const MD_TYPES: FilePickerAcceptType[] = [
-  { description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown'] } },
+/** Al abrir se aceptan también los `.md` de versiones anteriores; al guardar, solo `.txt`. */
+const OPEN_TYPES: FilePickerAcceptType[] = [
+  { description: 'Texto', accept: { [TODO_MIME]: [TODO_EXTENSION], 'text/markdown': ['.md', '.markdown'] } },
 ];
+const SAVE_TYPES: FilePickerAcceptType[] = [{ description: 'Texto', accept: { [TODO_MIME]: [TODO_EXTENSION] } }];
 
 export class FsAccessAdapter implements FileAdapter {
   readonly capabilities = { directWrite: true, persistentHandle: true };
@@ -11,7 +13,7 @@ export class FsAccessAdapter implements FileAdapter {
   async open(): Promise<TodoFile | null> {
     try {
       const [handle] = await window.showOpenFilePicker({
-        types: MD_TYPES,
+        types: OPEN_TYPES,
         multiple: false,
         excludeAcceptAllOption: false,
       });
@@ -23,7 +25,7 @@ export class FsAccessAdapter implements FileAdapter {
   }
 
   async create(defaultContent: string): Promise<TodoFile | null> {
-    const f = await this.saveAs(defaultContent, 'to-do.md');
+    const f = await this.saveAs(defaultContent, DEFAULT_TODO_NAME);
     return f;
   }
 
@@ -43,7 +45,7 @@ export class FsAccessAdapter implements FileAdapter {
 
   async saveAs(text: string, suggestedName: string): Promise<TodoFile | null> {
     try {
-      const handle = await window.showSaveFilePicker({ suggestedName, types: MD_TYPES });
+      const handle = await window.showSaveFilePicker({ suggestedName, types: SAVE_TYPES });
       const f: TodoFile = { name: handle.name, handle };
       await this.write(f, text);
       return f;

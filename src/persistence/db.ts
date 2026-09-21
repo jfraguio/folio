@@ -14,7 +14,7 @@ export interface DraftRecord {
 }
 
 /**
- * Versión del historial: el `.md` completo en un instante dado. Se guarda una cada hora mientras la
+ * Versión del historial: el archivo completo en un instante dado. Se guarda una cada hora mientras la
  * aplicación está abierta, al abrir si hace más de una hora de la última, y a petición del usuario.
  * Solo lectura y solo descargable; to-do nunca la vuelca sobre el archivo.
  */

@@ -1,5 +1,5 @@
 import type { FileAdapter, TodoFile } from './FileAdapter';
-import { normalizeText } from './FileAdapter';
+import { DEFAULT_TODO_NAME, normalizeText, TODO_MIME, TODO_OPEN_EXTENSIONS } from './FileAdapter';
 
 /**
  * Adaptador para navegadores sin File System Access API.
@@ -12,7 +12,7 @@ export class FallbackAdapter implements FileAdapter {
     return new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.md,.markdown,text/markdown';
+      input.accept = [...TODO_OPEN_EXTENSIONS, TODO_MIME, 'text/markdown'].join(',');
       input.style.display = 'none';
       document.body.appendChild(input);
       const done = (f: TodoFile | null) => {
@@ -29,8 +29,8 @@ export class FallbackAdapter implements FileAdapter {
   }
 
   async create(defaultContent: string): Promise<TodoFile | null> {
-    const file = new File([defaultContent], 'to-do.md', {
-      type: 'text/markdown',
+    const file = new File([defaultContent], DEFAULT_TODO_NAME, {
+      type: TODO_MIME,
       lastModified: Date.now(),
     });
     return { name: file.name, file };
@@ -46,8 +46,8 @@ export class FallbackAdapter implements FileAdapter {
   }
 
   async saveAs(text: string, suggestedName: string): Promise<TodoFile | null> {
-    download(text, suggestedName, 'text/markdown');
-    const file = new File([text], suggestedName, { type: 'text/markdown', lastModified: Date.now() });
+    download(text, suggestedName, TODO_MIME);
+    const file = new File([text], suggestedName, { type: TODO_MIME, lastModified: Date.now() });
     return { name: suggestedName, file };
   }
 }

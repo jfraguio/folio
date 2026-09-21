@@ -1,5 +1,5 @@
 /**
- * Formato del `.md` de to-do.
+ * Formato del archivo de to-do (`.txt`; los `.md` anteriores tienen el mismo contenido).
  *
  * El documento son las tabs (de 1 a TAB_COUNT), separadas por marcadores `[todo:tab N]` en
  * línea propia, donde N es la posición de la tab. Cada tab puede tener hasta TAB_COUNT subtabs,

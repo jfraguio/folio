@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import type { FileAdapter, TodoFile } from '../fs/FileAdapter';
+import { DEFAULT_TODO_NAME, TODO_MIME, type FileAdapter, type TodoFile } from '../fs/FileAdapter';
 import { FsAccessAdapter } from '../fs/FsAccessAdapter';
 import { download } from '../fs/FallbackAdapter';
 import { isTouch } from '../fs/detect';
@@ -133,7 +133,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       else void liveDraft.clear().catch(() => {}); // que no vuelva a preguntar en la próxima apertura
     }
 
-    // Las tabs son el documento; el diccionario viaja al final del .md como comentario HTML.
+    // Las tabs son el documento; el diccionario viaja al final del archivo como comentario HTML.
     const { tabs, words } = splitDocument(raw);
 
     // 4. UI base.
@@ -144,7 +144,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
 
     const statusDot = new StatusDot((state) => {
       if (state === 'error') void commands.run('save.retry');
-      else if (state === 'degraded') void commands.run('export.md');
+      else if (state === 'degraded') void commands.run('export.txt');
       else void commands.run('menu');
     });
     // Estado del guardado: el punto de la esquina y cualquier otro indicador.
@@ -483,7 +483,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
 
     const saveAs = async () => {
       const t = getText();
-      const f = await adapter.saveAs(t, file.name || 'to-do.md');
+      const f = await adapter.saveAs(t, file.name || DEFAULT_TODO_NAME);
       if (!f) return;
       file = f;
       if (!degraded) {
@@ -635,10 +635,10 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         },
       },
       {
-        id: 'export.md',
-        label: 'Descargar el .md',
+        id: 'export.txt',
+        label: 'Descargar el .txt',
         when: () => degraded,
-        run: () => download(getText(), file.name || 'to-do.md', 'text/markdown'),
+        run: () => download(getText(), file.name || DEFAULT_TODO_NAME, TODO_MIME),
       },
       {
         id: 'save',

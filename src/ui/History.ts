@@ -2,6 +2,7 @@ import { el, clear, formatDateTime } from './el';
 import { openOverlay } from './Menu';
 import { notice } from './Notice';
 import { saveToNewFile } from '../fs/FallbackAdapter';
+import { TODO_EXTENSION, TODO_MIME } from '../fs/FileAdapter';
 import { listVersions, versionFileName } from '../persistence/backups';
 import type { BackupRecord } from '../persistence/db';
 import { formatNumber } from '../text/words';
@@ -15,7 +16,7 @@ export interface HistoryOptions {
 /**
  * Historial: versiones del archivo guardadas en IndexedDB (ver persistence/backups.ts).
  * Lista, descarga y «Guardar versión». A propósito no hay «restaurar»: una versión nunca vuelve al
- * editor ni al .md desde aquí; se descarga y se abre como cualquier otro .md.
+ * editor ni al archivo desde aquí; se descarga y se abre como cualquier otro .txt.
  */
 export function openHistory(todoId: string, fileName: string, o: HistoryOptions): void {
   const list = el('div', { class: 'history' });
@@ -95,7 +96,7 @@ export function openHistory(todoId: string, fileName: string, o: HistoryOptions)
               on: {
                 click: async () => {
                   try {
-                    const saved = await saveToNewFile(v.text, name, { description: 'Markdown', mime: 'text/markdown', extension: '.md' });
+                    const saved = await saveToNewFile(v.text, name, { description: 'Texto', mime: TODO_MIME, extension: TODO_EXTENSION });
                     if (saved) notice(`Versión guardada en ${saved}`);
                   } catch (e) {
                     notice('No se pudo descargar la versión.');

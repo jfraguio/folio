@@ -92,10 +92,11 @@ describe('historial de versiones', () => {
     expect(v?.words).toBe(3);
   });
 
-  it('versionFileName sugiere <nombre> — <fecha> <hora>.md', () => {
+  it('versionFileName sugiere <nombre> — <fecha> <hora>.txt (también para un .md antiguo)', () => {
     const ts = new Date('2026-09-11T14:05:00').getTime();
-    expect(versionFileName('to-do.md', { ts })).toBe('to-do — 2026-09-11 14.05.md');
-    expect(versionFileName('notas', { ts })).toBe('notas — 2026-09-11 14.05.md');
+    expect(versionFileName('to-do.txt', { ts })).toBe('to-do — 2026-09-11 14.05.txt');
+    expect(versionFileName('to-do.md', { ts })).toBe('to-do — 2026-09-11 14.05.txt');
+    expect(versionFileName('notas', { ts })).toBe('notas — 2026-09-11 14.05.txt');
   });
 
   describe('VersionHistory (temporizador de sesión)', () => {

@@ -1,4 +1,5 @@
 import { el } from './el';
+import { stripTodoExtension } from '../fs/FileAdapter';
 import type { TodoFileRecord } from '../persistence/db';
 
 export interface StartScreenOptions {
@@ -25,7 +26,7 @@ export function renderStartScreen(root: HTMLElement, o: StartScreenOptions): voi
           el(
             'button',
             { class: 'start__action start__action--secondary', on: { click: () => o.onContinue(o.last!) } },
-            `CONTINUE «${o.last.name.replace(/\.(md|markdown)$/i, '')}»`,
+            `CONTINUE «${stripTodoExtension(o.last.name)}»`,
           ),
       ),
       o.degraded &&
@@ -33,8 +34,8 @@ export function renderStartScreen(root: HTMLElement, o: StartScreenOptions): voi
           'p',
           { class: 'start__note' },
           o.touch
-            ? 'En el móvil los cambios se guardan como borrador en este navegador; puedes descargar el .md desde el menú cuando quieras.'
-            : 'Tu navegador no permite guardar directamente en el archivo. to-do guardará un borrador local y podrás descargar el .md cuando quieras. Para la experiencia completa, usa Chrome o Edge.',
+            ? 'En el móvil los cambios se guardan como borrador en este navegador; puedes descargar el .txt desde el menú cuando quieras.'
+            : 'Tu navegador no permite guardar directamente en el archivo. to-do guardará un borrador local y podrás descargar el .txt cuando quieras. Para la experiencia completa, usa Chrome o Edge.',
         ),
     ),
   );

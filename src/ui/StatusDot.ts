@@ -9,7 +9,7 @@ const LABELS: Record<DotState, string> = {
   saving: 'Guardando…',
   saved: 'Guardado',
   error: 'No se pudo guardar · pulsa para resolver',
-  degraded: 'Borrador local · descarga el .md desde el menú',
+  degraded: 'Borrador local · descarga el .txt desde el menú',
 };
 
 type StatusListener = (state: DotState, lastSaved?: number) => void;

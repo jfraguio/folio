@@ -7,7 +7,7 @@
 
 ## 1. Visión del producto
 
-**to-do** es una aplicación web minimalista para guardar notas en **texto plano**. Hereda de Folio su filosofía: cero distracciones, interfaz casi invisible, el texto como protagonista, guardado automático y transparente, y escritura sobre archivos locales reales en formato Markdown/texto plano.
+**to-do** es una aplicación web minimalista para guardar notas en **texto plano**. Hereda de Folio su filosofía: cero distracciones, interfaz casi invisible, el texto como protagonista, guardado automático y transparente, y escritura sobre archivos locales reales en texto plano.
 
 La aplicación consta de **una única pantalla con hasta 10 pestañas (tabs)**, equivalentes a las «Notas» de Folio. Cada tab es un espacio de texto libre e independiente; se empieza con una y se crean o quitan desde la propia barra. El contenido de las tabs ocupa **toda la pantalla**.
 
@@ -15,7 +15,7 @@ Principios fundamentales (heredados de Folio):
 
 - Cero distracciones; interfaz extremadamente minimalista.
 - El texto es siempre el protagonista.
-- Escritura sobre un archivo local real (`.md`), que es la única fuente de verdad.
+- Escritura sobre un archivo local real (`.txt`), que es la única fuente de verdad.
 - Guardado automático y transparente; el usuario nunca piensa en guardar.
 - Corrección ortográfica discreta (solo marca visual, nunca sugerencias), activada por defecto.
 - Contrastes suaves y gran comodidad visual; modo claro y modo oscuro.
@@ -39,7 +39,7 @@ Principios fundamentales (heredados de Folio):
 | **Menú** | Se abre con un botón abajo a la izquierda (idéntico al de Folio: tres líneas horizontales) **o con atajo de teclado** (`Cmd/Ctrl+K`). Es un overlay tipo paleta de comandos. |
 | **Tema claro/oscuro** | Opción del menú. Mismos tokens de color que Folio. |
 | **Corrector ortográfico** | Opción del menú para activar/desactivar. Palabras erróneas pintadas de rojo apagado, igual que en Folio, sin subrayado ni sugerencias. |
-| **Diccionario personal** | Opción del menú. Lista de palabras aceptadas, persistente dentro del propio `.md`, con gestión (ver/quitar). |
+| **Diccionario personal** | Opción del menú. Lista de palabras aceptadas, persistente dentro del propio `.txt`, con gestión (ver/quitar). |
 | **Historial** | Opción del menú. Versiones del archivo: al abrir, cada hora y a petición («Guardar versión»); 50 máx.; solo lectura, descargables (§8.3). |
 | **Pantalla completa** | Entrar/salir de pantalla completa (acción explícita, nunca automática). |
 | **Marca de la app** | Arriba a la derecha, con la misma estética que «FOLIO», el texto **«TO-DO»**. |
@@ -54,7 +54,7 @@ Principios fundamentales (heredados de Folio):
 - ❌ Contador de palabras.
 - ❌ Focus mode por párrafo (atenuado del resto del texto).
 - ❌ **Interpretación de Markdown**: el texto se muestra siempre como texto plano, sin estilizar `**negrita**`, `#`, listas, etc. (Se quitó `@codemirror/lang-markdown`.)
-- ❌ Asistente de creación de «nueva novela»: to-do trabaja con **un único archivo** `.md` por defecto (ver §4).
+- ❌ Asistente de creación de «nueva novela»: to-do trabaja con **un único archivo** `.txt` por defecto (ver §4).
 
 ### Funcionalidad propia de to-do (no heredada de Folio)
 
@@ -144,20 +144,20 @@ A diferencia de Folio (donde las pestañas viven dentro de un panel modal), en t
 
 ## 4. Archivo de trabajo y persistencia
 
-### 4.1. Un único `.md`
+### 4.1. Un único `.txt`
 
-to-do trabaja sobre **un único archivo `.md`** que el usuario elige al abrir la app (o crea la primera vez). Formato:
+to-do trabaja sobre **un único archivo `.txt`** que el usuario elige al abrir la app (o crea la primera vez). Formato:
 
-- Markdown estándar, legible como texto plano, UTF-8, saltos `\n`.
+- Texto plano, UTF-8, saltos `\n`. La aplicación no interpreta Markdown (`#` y `--` son convenciones propias), y un `.txt` no lo reformatea ningún visor ni editor de Markdown. Los `.md` de versiones anteriores tienen el mismo contenido y se siguen abriendo (`FsAccessAdapter`, `FallbackAdapter` y el `file_handler` de la PWA aceptan `.txt`, `.md` y `.markdown`); lo que se crea o descarga es siempre `.txt`.
 - Sin front matter, sin metadatos propietarios, con una única excepción: el bloque de diccionario personal al final, como comentario HTML (igual que en Folio).
 
-### 4.2. Estructura de las tabs dentro del `.md`
+### 4.2. Estructura de las tabs dentro del archivo
 
 Cada tab es una sección delimitada por un marcador propio, al estilo de los bloques `[folio:nota N]` de Folio, pero con el prefijo de la app. Se usa un único comentario HTML al final del documento (o, alternativa equivalente, todo el documento como bloques):
 
 **Opción recomendada (fiel a Folio, adaptada):** las 10 tabs son el **contenido principal**, y se almacenan en un bloque comentado al final **no aplica** — en to-do las tabs *son* el documento. Se adopta esta estructura, análoga a las notas de Folio:
 
-```markdown
+```text
 [todo:tab 1]
 Contenido de la primera tab.
 [todo:tab 1.1]
@@ -182,7 +182,7 @@ Reglas (equivalentes a `folioBlocks.ts`):
 - Marcador por subtab: `[todo:tab N.M]` (`M` = posición dentro de la tab `N`, de 1 a 10), justo después del contenido de su tab (y de las subtabs anteriores). Mismas reglas que las tabs: una vacía se escribe solo con su marcador; los huecos se leen como subtabs vacías. Una versión anterior de la aplicación (sin subtabs) lee estas líneas como texto de la tab `N`: no se pierde nada.
 - Un archivo sin marcadores (texto plano cualquiera, o formato antiguo) se carga **entero en la tab 1**.
 - Al cargar hay tantas tabs como indique el marcador más alto (mínimo 1); en archivos anteriores, que omitían las vacías, los huecos se leen como tabs vacías y nada cambia de sitio. Abrir y guardar un archivo ya en el formato actual no lo modifica.
-- El bloque `<!-- todo:diccionario ... -->` va **al final**, tras la última tab. Es un comentario HTML: cualquier visor Markdown lo ignora.
+- El bloque `<!-- todo:diccionario ... -->` va **al final**, tras la última tab. Es un comentario HTML (herencia del formato `.md`; se mantiene para no cambiar los archivos existentes).
   - Dentro del bloque: marcador, líneas de descripción, línea vacía, y una palabra por línea.
   - Una línea es una palabra válida si no contiene espacios; el resto se ignora.
   - Sin palabras no se escribe el bloque.
@@ -214,7 +214,7 @@ interface FileAdapter {
 
 - **`FsAccessAdapter`**: File System Access API (`showOpenFilePicker` / `showSaveFilePicker` / `createWritable`), persiste el handle en IndexedDB. Navegadores Chromium de escritorio (≥ 108).
 - **`FallbackAdapter`** (Firefox/Safari): abrir con `<input type="file">`; `write()` no disponible; `saveAs()` descarga con `<a download>`. El borrador vivo hace de autosave. Aviso discreto de una línea en la pantalla inicial.
-- **Pantalla inicial mínima** (estilo Folio): «Abrir to-do», «Nuevo to-do» (sugiere `to-do.md`), y «Continuar» si hay handle persistido. Tras cualquiera, se entra directamente en las tabs.
+- **Pantalla inicial mínima** (estilo Folio): «Abrir to-do», «Nuevo to-do» (sugiere `to-do.txt`), y «Continuar» si hay handle persistido. Tras cualquiera, se entra directamente en las tabs.
 - `navigator.locks` + `BroadcastChannel` para evitar edición simultánea en dos pestañas (igual que Folio §9.7).
 
 ---
@@ -347,7 +347,7 @@ Igual que Folio (§13 de su spec):
 ## 7.1. Diccionario personal
 
 - `Set<string>` case-sensitive, aplicado en el hilo principal antes de consultar al worker.
-- Persiste en el bloque `<!-- todo:diccionario -->` del propio `.md` (§4.2).
+- Persiste en el bloque `<!-- todo:diccionario -->` del propio archivo (§4.2).
 - **Añadir palabra:** atajo `Cmd/Ctrl+Shift+D` con el cursor sobre la palabra, o acción del menú «Añadir “palabra” al diccionario» (visible solo si el cursor está sobre una palabra marcada — puede incluirse como entrada condicional en el menú, igual que en la paleta de Folio).
 - **Gestionar:** opción del menú «Diccionario» abre un overlay con la lista de palabras en pills; pulsar una la elimina. Estilo `.dict` / `.dict__word` de Folio.
 - Tras quitar palabras, Hunspell no puede olvidarlas: se recarga el worker y se re-escanea.
@@ -378,12 +378,12 @@ El menú es un **overlay tipo paleta de comandos**, idéntico en comportamiento 
 Entradas condicionales adicionales, después de las anteriores:
 
 - «Añadir «palabra» al diccionario» — solo con el corrector activado y el cursor sobre una palabra.
-- «Descargar el .md» — solo en modo degradado.
+- «Descargar el .txt» — solo en modo degradado.
 - «Reintentar guardado» — solo tras un error de guardado.
 
 ### 8.3. Historial
 
-Versiones del `.md` completo (tabs y diccionario incluidos) guardadas en IndexedDB (`src/ui/History.ts` + `src/persistence/backups.ts`), con fecha/hora y número de palabras. Se ligan al `todoId`, así que sobreviven a renombrar el archivo. En modo degradado no se guardan versiones y la opción no aparece en el menú.
+Versiones del archivo completo (tabs y diccionario incluidos) guardadas en IndexedDB (`src/ui/History.ts` + `src/persistence/backups.ts`), con fecha/hora y número de palabras. Se ligan al `todoId`, así que sobreviven a renombrar el archivo. En modo degradado no se guardan versiones y la opción no aparece en el menú.
 
 Cuándo se guarda una versión:
 
@@ -395,8 +395,8 @@ Reglas:
 
 - Con cada versión se guarda el **SHA-256** del texto (`hash`). Ninguna versión, automática ni manual, se guarda si su hash coincide con el de la versión más reciente: una hora sin tocar el archivo no consume plaza, y «Guardar versión» sin cambios avisa «Sin cambios desde la última versión». Se compara solo con la más reciente: volver a un texto anterior sí genera versión.
 - Se conservan las **50 más recientes** (`HISTORY_KEEP = 50`): al guardar la 51.ª desaparece la más antigua.
-- El panel muestra una fila por versión (fecha y hora, palabras) con botón **«Descargar»** (guarda como `<nombre> — YYYY-MM-DD HH.mm.md` vía `showSaveFilePicker` o descarga directa), y abajo **«Guardar versión»**.
-- **A propósito no existe «restaurar»:** una versión nunca vuelve al editor ni al archivo desde el navegador. Si el usuario quiere recuperar algo, la descarga y la abre como cualquier `.md`.
+- El panel muestra una fila por versión (fecha y hora, palabras) con botón **«Descargar»** (guarda como `<nombre> — YYYY-MM-DD HH.mm.txt` vía `showSaveFilePicker` o descarga directa), y abajo **«Guardar versión»**.
+- **A propósito no existe «restaurar»:** una versión nunca vuelve al editor ni al archivo desde el navegador. Si el usuario quiere recuperar algo, la descarga y la abre como cualquier `.txt`.
 
 Migración: la BD pasa a versión 2. El store `backups` cambia su clave de `[todoId, day]` (una copia por día) a `[todoId, ts]`; las copias existentes se conservan.
 
@@ -481,7 +481,7 @@ Acceso con la librería `idb`.
 | Editor | CodeMirror 6 (`@codemirror/state`, `view`, `commands`, `language`, `lang-markdown`) |
 | Persistencia | `idb` (IndexedDB) |
 | Corrector | `nspell` + `dictionary-es` en Web Worker |
-| PWA (opcional) | `vite-plugin-pwa`, `file_handlers` para `.md` |
+| PWA (opcional) | `vite-plugin-pwa`, `file_handlers` para `.txt` (y `.md` antiguos) |
 | Tests | Vitest (+ Playwright para e2e, opcional) |
 
 ### 12.2. Estructura de módulos propuesta
@@ -602,11 +602,11 @@ Adaptación de `session.ts` de Folio:
 4. Botón de menú abajo a la izquierda + `Cmd/Ctrl+K` abren el menú-overlay.
 5. Menú con exactamente estas opciones base, en este orden: **Tema claro/oscuro**, **Activar/Desactivar corrector**, **Diccionario**, **Historial** (más las condicionales que se decidan: añadir palabra, pantalla completa, guardar como).
 6. Corrector: palabras erróneas en rojo apagado (`--misspell`), sin subrayado, activado por defecto, solo español.
-7. Diccionario personal persistido en el bloque `<!-- todo:diccionario -->` del `.md`.
+7. Diccionario personal persistido en el bloque `<!-- todo:diccionario -->` del archivo.
 8. Historial: versiones (al abrir si hace más de 1 h, cada hora, botón «Guardar versión»; 50 máx.), solo descargables, nunca restaurables.
 9. Pantalla completa disponible (entrada de menú, sin atajo de teclado).
 10. Marca «TO-DO» arriba a la derecha con la estética de «FOLIO».
-11. Todo el contenido persiste en un único `.md` con la estructura de marcadores `[todo:tab N]`.
+11. Todo el contenido persiste en un único `.txt` con la estructura de marcadores `[todo:tab N]`.
 12. **El proyecto Folio no se modifica en absoluto.**
 
 ---

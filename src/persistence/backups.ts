@@ -1,6 +1,7 @@
 import { getDB, type BackupRecord } from './db';
 import { allTexts, splitDocument } from './todoBlocks';
 import { countWords } from '../text/words';
+import { stripTodoExtension, TODO_EXTENSION } from '../fs/FileAdapter';
 
 /** Versiones que se conservan por archivo (las más recientes). */
 export const HISTORY_KEEP = 50;
@@ -10,7 +11,7 @@ export const HISTORY_INTERVAL_MS = 60 * 60 * 1000;
 /**
  * Historial de versiones.
  *
- * Se guarda en IndexedDB el `.md` completo (tabs y diccionario incluidos):
+ * Se guarda en IndexedDB el archivo completo (tabs y diccionario incluidos):
  *
  * - al abrir el archivo, si hace más de una hora de la última versión (o no hay ninguna);
  * - cada hora mientras la aplicación está abierta;
@@ -20,7 +21,7 @@ export const HISTORY_INTERVAL_MS = 60 * 60 * 1000;
  * SHA-256 del contenido (guardado con cada versión), así una hora sin tocar el archivo no consume
  * una de las HISTORY_KEEP plazas. Se conservan las HISTORY_KEEP más recientes; la más antigua
  * desaparece al guardar la siguiente. Son de solo lectura: la única salida es descargarlas como
- * `.md`; to-do nunca vuelca una versión sobre el archivo ni el editor.
+ * `.txt`; to-do nunca vuelca una versión sobre el archivo ni el editor.
  */
 
 /** SHA-256 del texto, en hexadecimal. */
@@ -81,13 +82,13 @@ async function latestVersion(todoId: string): Promise<BackupRecord | undefined> 
   return cursor?.value;
 }
 
-/** Nombre de archivo para descargar una versión: `<to-do> — 2026-09-11 14.30.md`. */
+/** Nombre de archivo para descargar una versión: `<to-do> — 2026-09-11 14.30.txt`. */
 export function versionFileName(fileName: string, version: Pick<BackupRecord, 'ts'>): string {
-  const base = (fileName || 'to-do').replace(/\.(md|markdown)$/i, '');
+  const base = stripTodoExtension(fileName || 'to-do');
   const d = new Date(version.ts);
   const pad = (n: number) => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}`;
-  return `${base} — ${stamp}.md`;
+  return `${base} — ${stamp}${TODO_EXTENSION}`;
 }
 
 /**

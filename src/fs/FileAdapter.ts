@@ -30,7 +30,20 @@ export function normalizeText(text: string): string {
 
 /** Un archivo nuevo arranca vacío: las 10 tabs vacías no escriben ningún marcador. */
 export const DEFAULT_TODO_CONTENT = '';
-export const DEFAULT_TODO_NAME = 'to-do.md';
+
+/**
+ * Formato del archivo: texto plano `.txt`. La aplicación no interpreta Markdown (los `#` y `--`
+ * son convenciones propias), y un `.txt` no lo reformatea ningún visor ni editor de Markdown.
+ * Los archivos `.md` de versiones anteriores se siguen abriendo (mismo contenido), pero lo que
+ * se crea o descarga es siempre `.txt`.
+ */
+export const TODO_EXTENSION = '.txt';
+export const TODO_MIME = 'text/plain';
+export const DEFAULT_TODO_NAME = `to-do${TODO_EXTENSION}`;
+/** Extensiones que se aceptan al abrir: la actual y las de archivos anteriores. */
+export const TODO_OPEN_EXTENSIONS = ['.txt', '.md', '.markdown'];
+/** Quita la extensión de un nombre de archivo de to-do (`.txt` o las antiguas) para mostrarlo. */
+export const stripTodoExtension = (name: string): string => name.replace(/\.(txt|md|markdown)$/i, '');
 
 export class AbortedByUser extends Error {
   constructor() {
