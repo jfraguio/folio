@@ -1,0 +1,19 @@
+src/persistence/backups.ts
+  s_4045e83e2dce20::t_9468fccb4276c3 2,52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "33a70971acc062e2b9c268a03968bb0fc03b049e",
+  "prompts": {},
+  "sessions": {
+    "s_4045e83e2dce20": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f3cf80dbeffeRVbaOpkZ3mee6J",
+        "model": "claude-fable-5.1"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
