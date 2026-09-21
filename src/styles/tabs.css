@@ -42,8 +42,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* Mismo tamaño que el texto del editor fuera del modo zen (editor.css). */
-  font-size: calc(var(--ui) * 0.8);
+  /* Mismo tamaño que el texto del editor, en ambos modos (tokens.css). */
+  font-size: var(--text-size);
   line-height: 20px;
   padding: 0 min(0.45rem, 1.2vw);
   border: 1px solid transparent;
@@ -76,6 +76,14 @@ html[data-zen] .tab-bar__tab--active {
   border-color: transparent;
   background: transparent;
   color: var(--fg-dim);
+  pointer-events: none;
+}
+
+/* En modo zen la barra no tapa el texto: sin fondo, el texto sube hasta el borde superior de la
+   ventana y el título de la tab y la marca «TO-DO» quedan superpuestos, tenues. La barra
+   tampoco intercepta el ratón (el título ya no es interactivo). */
+html[data-zen] .tab-bar {
+  background: transparent;
   pointer-events: none;
 }
 
@@ -113,7 +121,7 @@ html[data-zen] .tab-bar__tab--active {
     min-height: 36px;
     line-height: 34px;
     padding: 0 14px;
-    font-size: 15px;
+    font-size: var(--text-size);
     scroll-snap-align: center;
     touch-action: pan-x;
   }

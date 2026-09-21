@@ -93,7 +93,7 @@ Se copian **literalmente** de Folio:
   --chrome-opacity: 0.35;
   --chrome-opacity-hover: 0.85;
   --font: 'iA Writer Quattro', 'IBM Plex Sans', system-ui, sans-serif;
-  --font-size: 21px;
+  --font-size: 16px;
   --line-height: 1.65;
   --ease: 120ms ease;
 }
@@ -386,11 +386,11 @@ Migración: la BD pasa a versión 2. El store `backups` cambia su clave de `[tod
 | Abrir menú | `Cmd/Ctrl+K` |
 | Ir a tab 1–10 | `Cmd/Ctrl+1` … `Cmd/Ctrl+0` (recomendado; decidir en implementación) |
 | Tab siguiente / anterior | `Cmd/Ctrl+Tab` / `Cmd/Ctrl+Shift+Tab` (o `Ctrl+PageDown/PageUp`; decidir) |
-| Pantalla completa | `Cmd/Ctrl+Shift+F` |
 | Añadir palabra al diccionario | `Cmd/Ctrl+Shift+D` |
-| Tema claro/oscuro | `Cmd/Ctrl+Shift+L` |
 | Guardar ahora (fuerza `flush`, evita el diálogo del navegador) | `Cmd/Ctrl+S` |
 | Cerrar overlay | `Esc` |
+
+Pantalla completa y tema claro/oscuro no tienen atajo: solo se activan desde el menú.
 
 Los atajos se instalan con un listener global en fase de captura (igual que `installShortcuts` de Folio) y usan `Mod` = ⌘ en Mac / Ctrl en el resto.
 
@@ -412,7 +412,7 @@ No se incluye en la implementación inicial. Si se añadiera después, se copiar
 
 ### 10.4. Tamaño de texto
 
-Fijo, sin atajos ni preferencia (hubo `Cmd/Ctrl+=` / `Cmd/Ctrl+-` y `todo.fontSize`; se retiraron). Dos bases en `tokens.css`: `--ui: 19px` es el `rem` del cromo y del editor fuera del modo zen (que usa 0,8 de esa base, 15,2px); `--font-size: 21px` es el cuerpo de Folio, que el editor usa solo en modo zen.
+Fijo, sin atajos ni preferencia (hubo `Cmd/Ctrl+=` / `Cmd/Ctrl+-` y `todo.fontSize`; se retiraron). Bases en `tokens.css`: `--ui: 19px` es el `rem` del cromo; `--font-size: 16px` es el cuerpo del editor en ambos modos (normal y zen), y `--text-size` (alias de `--font-size`) el de las tabs. Entre modos solo cambian el interlineado, la columna y el focus mode, no el tamaño de letra.
 
 ### 10.5. Avisos (Notice)
 
@@ -579,7 +579,7 @@ Adaptación de `session.ts` de Folio:
 6. Corrector: palabras erróneas en rojo apagado (`--misspell`), sin subrayado, activado por defecto, solo español.
 7. Diccionario personal persistido en el bloque `<!-- todo:diccionario -->` del `.md`.
 8. Historial: versiones (al abrir si hace más de 1 h, cada hora, botón «Guardar versión»; 50 máx.), solo descargables, nunca restaurables.
-9. Pantalla completa disponible (atajo `Cmd/Ctrl+Shift+F` y/o entrada de menú).
+9. Pantalla completa disponible (entrada de menú, sin atajo de teclado).
 10. Marca «TO-DO» arriba a la derecha con la estética de «FOLIO».
 11. Todo el contenido persiste en un único `.md` con la estructura de marcadores `[todo:tab N]`.
 12. **El proyecto Folio no se modifica en absoluto.**

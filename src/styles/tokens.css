@@ -46,10 +46,12 @@
   --chrome-opacity-hover: 0.85;
 
   --font: 'iA Writer Quattro', 'IBM Plex Sans', system-ui, sans-serif;
-  /* Cuerpo del texto en modo zen (el de Folio). Fijo: no se puede cambiar desde la aplicación. */
-  --font-size: 21px;
-  /* Base (rem) del cromo y del editor fuera del modo zen (0.8 de esta base). Fijo. */
+  /* Cuerpo del texto del editor (en ambos modos). Fijo: no se puede cambiar desde la aplicación. */
+  --font-size: 16px;
+  /* Base (rem) del cromo. Fijo. */
   --ui: 19px;
+  /* Cuerpo de las tabs: el mismo que el del editor. */
+  --text-size: var(--font-size);
   --line-height: 1.65;
   --measure: 38rem;
   --ease: 120ms ease;

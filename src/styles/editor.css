@@ -8,15 +8,15 @@
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font);
-  /* Mismo tamaño que las notas de Folio (0.8 de la base), no el cuerpo grande de novela. */
-  font-size: calc(var(--ui) * 0.8);
+  /* Cuerpo del editor, el mismo en ambos modos (tokens.css). */
+  font-size: var(--font-size);
   line-height: 1.55;
 }
 
 /* iOS hace zoom al enfocar cualquier campo con letra menor de 16px: en táctil no se baja de ahí. */
 @media (pointer: coarse) {
   .cm-editor {
-    font-size: max(16px, calc(var(--ui) * 0.8));
+    font-size: max(16px, var(--font-size));
   }
 }
 
@@ -69,13 +69,12 @@
 }
 
 /* ---------- Modo zen: la tipografía de Folio en su modo normal ----------
-   Mismo cuerpo (--font-size sin el 0.8), interlineado (--line-height) y columna centrada de
-   38rem con padding «22vh 0 60vh» que el editor de Folio (src/styles/editor.css). La fuente ya
-   es la misma (--font). Solo el padding superior se asegura de no quedar bajo la barra de tabs,
-   y el inferior lo siguen fijando las reglas de arriba (60vh; en móvil, 45dvh). */
+   Mismo cuerpo que en modo normal (--font-size); cambian el interlineado (--line-height) y la
+   columna centrada de 38rem con padding «22vh 0 60vh» del editor de Folio (src/styles/editor.css).
+   La fuente ya es la misma (--font). Solo el padding superior se asegura de no quedar bajo la
+   barra de tabs, y el inferior lo siguen fijando las reglas de arriba (60vh; en móvil, 45dvh). */
 
 html[data-zen] .cm-editor {
-  font-size: var(--font-size);
   line-height: var(--line-height);
 }
 
@@ -85,6 +84,23 @@ html[data-zen] .cm-editor .cm-content {
   padding-top: max(22vh, calc(var(--tab-bar-height) + 0.5rem));
   padding-left: 0;
   padding-right: 0;
+}
+
+/* Separación entre párrafos. Cada línea del documento (.cm-line) es un párrafo, aunque se
+   ajuste en varias líneas visuales, así que el hueco va entre líneas del documento, no entre
+   líneas de texto. Se usa padding y no margin: CodeMirror mide la altura de las líneas con
+   getBoundingClientRect, que no incluye márgenes, y el scroll se desajustaría. */
+html[data-zen] .cm-editor .cm-line {
+  padding-bottom: 0.6em;
+}
+
+html[data-zen] .cm-editor .cm-line:last-child {
+  padding-bottom: 0;
+}
+
+/* El fondo de los títulos no debe llenar el hueco entre párrafos. */
+html[data-zen] .cm-editor .cm-heading {
+  background-clip: content-box;
 }
 
 /* En móvil la columna de 38rem no cabe: sin margen lateral el texto tocaría los bordes. */

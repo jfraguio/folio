@@ -5,9 +5,7 @@ export const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test
 /** Combinaciones: "Mod" es ⌘ en Mac y Ctrl en el resto. */
 export const SHORTCUTS: Record<string, string> = {
   'Mod-k': 'menu',
-  'Mod-Shift-f': 'fullscreen',
   'Mod-Shift-d': 'dictionary.add',
-  'Mod-Shift-l': 'theme.toggle',
   'Mod-s': 'save',
   'Mod-1': 'tab.0',
   'Mod-2': 'tab.1',
