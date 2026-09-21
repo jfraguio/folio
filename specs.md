@@ -160,9 +160,12 @@ Cada tab es una sección delimitada por un marcador propio, al estilo de los blo
 ```markdown
 [todo:tab 1]
 Contenido de la primera tab.
+[todo:tab 1.1]
+Contenido de la primera subtab de la primera tab.
+[todo:tab 1.2]
 [todo:tab 2]
 [todo:tab 3]
-Contenido de la tercera tab (la segunda está vacía: solo su marcador).
+Contenido de la tercera tab (la segunda está vacía: solo su marcador; la subtab 1.2 también).
 
 <!-- todo:diccionario
 Palabras que el corrector ortográfico de to-do acepta, una por línea.
@@ -175,7 +178,8 @@ Kaelith
 
 Reglas (equivalentes a `folioBlocks.ts`):
 
-- Marcador por tab: `[todo:tab N]` (`N` = posición, de 1 a 10) en línea propia. Una tab vacía se escribe **solo con su marcador**, para que siga existiendo al reabrir; un documento con una única tab vacía queda vacío del todo.
+- Marcador por tab: `[todo:tab N]` (`N` = posición, de 1 a 10) en línea propia. Una tab vacía se escribe **solo con su marcador**, para que siga existiendo al reabrir; un documento con una única tab vacía y sin subtabs queda vacío del todo.
+- Marcador por subtab: `[todo:tab N.M]` (`M` = posición dentro de la tab `N`, de 1 a 10), justo después del contenido de su tab (y de las subtabs anteriores). Mismas reglas que las tabs: una vacía se escribe solo con su marcador; los huecos se leen como subtabs vacías. Una versión anterior de la aplicación (sin subtabs) lee estas líneas como texto de la tab `N`: no se pierde nada.
 - Un archivo sin marcadores (texto plano cualquiera, o formato antiguo) se carga **entero en la tab 1**.
 - Al cargar hay tantas tabs como indique el marcador más alto (mínimo 1); en archivos anteriores, que omitían las vacías, los huecos se leen como tabs vacías y nada cambia de sitio. Abrir y guardar un archivo ya en el formato actual no lo modifica.
 - El bloque `<!-- todo:diccionario ... -->` va **al final**, tras la última tab. Es un comentario HTML: cualquier visor Markdown lo ignora.
@@ -186,7 +190,7 @@ Reglas (equivalentes a `folioBlocks.ts`):
 - Si el bloque de diccionario no está al final o está mal cerrado, se trata como texto normal (aparecería como contenido de la última tab) y no se pierde nada.
 - Editar cualquier tab o el diccionario es un cambio del documento: pasa por el autosave y el borrador vivo como cualquier edición.
 
-> **Constante:** `TAB_COUNT = 10` (equivalente a `NOTE_TABS` de Folio).
+> **Constante:** `TAB_COUNT = 10` (equivalente a `NOTE_TABS` de Folio). Vale tanto para el número máximo de tabs como de subtabs por tab.
 
 ### 4.3. Normalización al abrir
 
@@ -223,14 +227,28 @@ interface FileAdapter {
 - **Nombre**: primera palabra del contenido (`/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/u`, como `tabTitle` de Folio), truncada a 16 caracteres con `…` si es más larga; si la tab está vacía, su número (`1`…`10`).
 - Cambiar de tab: clic, o atajos (ver §9). Al cambiar, el editor muestra el contenido de la nueva tab y el foco vuelve al texto (cursor al final, como en `Notes.ts`).
 - Al entrar en la aplicación se abre siempre la primera tab con su contenido. La tab activa no se persiste entre sesiones (hubo una clave `todo.lastTab`; se retiró).
-- **Crear**: opción «Crear pestaña» del menú (§8.2), visible mientras haya menos de 10 tabs; añade una tab vacía al final y pasa a ella.
-- **Eliminar**: opción «Eliminar pestaña N» (N = la tab abierta) del menú (§8.2), visible solo si la tab abierta está vacía (su nombre es su número) y no es la única; al elegirla se quita y pasa a estar activa la que ocupa su sitio (o la última). Nunca se borra texto: una tab con contenido no se puede eliminar.
-- Los atajos `Mod+N` y los dígitos con el menú abierto solo actúan si esa tab existe.
+- **Crear**: opción «Crear pestaña» del menú (§8.2), visible solo desde una tab principal (no desde una subtab) y mientras haya menos de 10 tabs; añade una tab vacía al final y pasa a ella.
+- **Eliminar**: opción «Eliminar pestaña N» (N = la tab abierta) del menú (§8.2), visible solo si la tab abierta está vacía (su nombre es su número), no tiene subtabs con texto y no es la única; al elegirla se quita (con sus subtabs, todas vacías) y pasa a estar activa la que ocupa su sitio (o la última), sin subtab. Nunca se borra texto: una tab con contenido, o con subtabs con contenido, no se puede eliminar.
+- Los atajos `Mod+N` y los dígitos con el menú abierto solo actúan si esa tab existe, y siempre abren la tab principal (no una subtab).
 
-### 5.2. Datos
+### 5.2. Subtabs
 
-- En memoria: `tabs: string[]` de longitud 10 (`''` para las vacías).
-- Al escribir en una tab: actualizar `tabs[active]`, re-renderizar los títulos de la barra de tabs, y disparar el flujo de cambio (autosave + borrador vivo).
+Cada tab puede tener de 0 a 10 subtabs: espacios de texto propios que cuelgan de ella. Un solo nivel: las subtabs no tienen subtabs.
+
+- **Dónde se ven**: en la misma barra, **después de todas las tabs principales**, separadas por un hueco mayor y con un fondo ligeramente más oscuro (`--tab-sub-bg`; la activa, `--tab-sub-bg-active`). Solo se muestran las subtabs de la tab abierta: al cambiar de tab principal cambian las subtabs visibles. Van detrás (y no intercaladas tras su madre) para que las tabs principales no se muevan de sitio al cambiar de tab.
+- **Nombre**: igual que una tab (primera palabra, o su número dentro de su tab si está vacía: `1`…`10`). El fondo ya la distingue de una tab principal.
+- **Abrir**: clic, o `Mod+Alt+M` (subtab M de la tab abierta; §9). Volver a la madre: clic en ella o `Mod+N`. Al abrir una subtab, la tab madre deja de estar marcada como activa (solo hay una activa: la que se edita).
+- **Crear**: opción «Crear subpestaña» del menú (§8.2), justo debajo de «Crear pestaña», visible solo desde una tab principal (no desde una subtab) y mientras esa tab tenga menos de 10 subtabs; añade una subtab vacía al final y pasa a ella.
+- **Eliminar**: la misma opción de eliminar, con etiqueta «Eliminar subpestaña M» cuando la abierta es una subtab; visible solo si está vacía. Al elegirla se quita y pasa a estar activa la subtab que ocupa su sitio (o la última; sin subtabs, la tab madre).
+- Al entrar en la aplicación se abre la primera tab, nunca una subtab.
+- En modo zen se ve solo el título de la tab o subtab abierta, como hasta ahora.
+- **Desbordamiento**: si tabs y subtabs no caben en la barra, la tira de tabs se desplaza en horizontal (sin barra de scroll visible, con degradado en los bordes) y la activa se centra sola al cambiar. Las tabs principales conservan su hueco fijo (1/10 del ancho); las subtabs van con ancho natural detrás. La tira nunca pasa por debajo de la marca «TO-DO».
+
+### 5.3. Datos
+
+- En memoria: `tabs: Tab[]` con `Tab = { text: string; subs: string[] }` (de 1 a 10 tabs; `''` para los textos vacíos). La activa es `(activeTab, activeSub)`, con `activeSub = -1` cuando se edita la propia tab.
+- Al escribir: actualizar el texto de la tab o subtab activa, re-renderizar los títulos de la barra, y disparar el flujo de cambio (autosave + borrador vivo).
+- El historial (§8.3) cuenta las palabras de tabs y subtabs.
 
 ---
 
@@ -352,9 +370,10 @@ El menú es un **overlay tipo paleta de comandos**, idéntico en comportamiento 
 3. **Pantalla completa / Salir de pantalla completa** — solo si el navegador tiene la API (§10.2). Sin atajo.
 4. **Activar/Desactivar corrector** — etiqueta dinámica según el estado. Persiste (`todo.spell.enabled`).
 5. **Diccionario** — abre el gestor del diccionario personal (§7.1). Solo con el corrector activado.
-6. **Crear pestaña** — mientras haya menos de 10 tabs (§5).
-7. **Eliminar pestaña N** — solo si la tab abierta está vacía y no es la única (§5).
-8. **Historial** — abre el panel de historial (§8.3). No en modo degradado.
+6. **Crear pestaña** — solo desde una tab principal, mientras haya menos de 10 tabs (§5).
+7. **Crear subpestaña** — solo desde una tab principal, mientras tenga menos de 10 subtabs (§5.2).
+8. **Eliminar pestaña N** / **Eliminar subpestaña M** — según lo abierto sea una tab o una subtab; solo si está vacía (y, una tab, si no tiene subtabs con texto ni es la única) (§5).
+9. **Historial** — abre el panel de historial (§8.3). No en modo degradado.
 
 Entradas condicionales adicionales, después de las anteriores:
 
@@ -388,7 +407,8 @@ Migración: la BD pasa a versión 2. El store `backups` cambia su clave de `[tod
 | Acción | Atajo |
 |---|---|
 | Abrir menú | `Cmd/Ctrl+K` |
-| Ir a tab 1–10 | `Cmd/Ctrl+1` … `Cmd/Ctrl+0` (recomendado; decidir en implementación) |
+| Ir a tab 1–10 | `Cmd/Ctrl+1` … `Cmd/Ctrl+0` (siempre la tab principal) |
+| Ir a subtab 1–10 de la tab abierta | `Cmd/Ctrl+Alt+1` … `Cmd/Ctrl+Alt+0` |
 | Tab siguiente / anterior | `Cmd/Ctrl+Tab` / `Cmd/Ctrl+Shift+Tab` (o `Ctrl+PageDown/PageUp`; decidir) |
 | Añadir palabra al diccionario | `Cmd/Ctrl+Shift+D` |
 | Guardar ahora (fuerza `flush`, evita el diálogo del navegador) | `Cmd/Ctrl+S` |
@@ -396,7 +416,9 @@ Migración: la BD pasa a versión 2. El store `backups` cambia su clave de `[tod
 
 Pantalla completa y tema claro/oscuro no tienen atajo: solo se activan desde el menú.
 
-Los atajos se instalan con un listener global en fase de captura (igual que `installShortcuts` de Folio) y usan `Mod` = ⌘ en Mac / Ctrl en el resto.
+Los atajos se instalan con un listener global en fase de captura (igual que `installShortcuts` de Folio) y usan `Mod` = ⌘ en Mac / Ctrl en el resto. Los dígitos se identifican por la tecla física (`e.code`, `Digit1`…`Digit0`), no por el carácter: con Alt o Shift pulsados `e.key` es otro símbolo («¡», «!»…), que además depende de la distribución del teclado.
+
+Las subtabs van con Alt (⌥) y no con Shift porque en macOS `⌘⇧3`, `⌘⇧4` y `⌘⇧5` son las capturas de pantalla del sistema y no llegan al navegador.
 
 ---
 

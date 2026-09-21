@@ -7,16 +7,14 @@ export const SHORTCUTS: Record<string, string> = {
   'Mod-k': 'menu',
   'Mod-Shift-d': 'dictionary.add',
   'Mod-s': 'save',
-  'Mod-1': 'tab.0',
-  'Mod-2': 'tab.1',
-  'Mod-3': 'tab.2',
-  'Mod-4': 'tab.3',
-  'Mod-5': 'tab.4',
-  'Mod-6': 'tab.5',
-  'Mod-7': 'tab.6',
-  'Mod-8': 'tab.7',
-  'Mod-9': 'tab.8',
-  'Mod-0': 'tab.9',
+  // Mod-1 … Mod-0: tabs 1 … 10. Mod-Alt-1 … Mod-Alt-0: subtabs 1 … 10 de la tab abierta. (Con
+  // Shift no: en macOS ⌘⇧3, ⌘⇧4 y ⌘⇧5 son las capturas de pantalla y no llegan al navegador.)
+  ...Object.fromEntries(
+    Array.from({ length: 10 }, (_, i) => [
+      [`Mod-${(i + 1) % 10}`, `tab.${i}`],
+      [`Mod-Alt-${(i + 1) % 10}`, `subtab.${i}`],
+    ]).flat(),
+  ),
 };
 
 export function comboOf(e: KeyboardEvent): string {
@@ -24,8 +22,12 @@ export function comboOf(e: KeyboardEvent): string {
   if (IS_MAC ? e.metaKey : e.ctrlKey) parts.push('Mod');
   if (e.shiftKey) parts.push('Shift');
   if (e.altKey) parts.push('Alt');
-  let key = e.key;
-  if (key.length === 1) key = key.toLowerCase();
+  // Los dígitos se identifican por la tecla física (`Digit1`…`Digit0`), no por el carácter: con
+  // Shift (o Alt) pulsado, `e.key` es el símbolo de la tecla («!», «"», «·»…), que además cambia
+  // con la distribución del teclado.
+  const digit = /^Digit(\d)$/.exec(e.code ?? '')?.[1];
+  let key = digit ?? e.key;
+  if (!digit && key.length === 1) key = key.toLowerCase();
   parts.push(key);
   return parts.join('-');
 }

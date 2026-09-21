@@ -1,5 +1,5 @@
 import { getDB, type BackupRecord } from './db';
-import { splitDocument } from './todoBlocks';
+import { allTexts, splitDocument } from './todoBlocks';
 import { countWords } from '../text/words';
 
 /** Versiones que se conservan por archivo (las más recientes). */
@@ -49,7 +49,7 @@ export async function saveVersion(todoId: string, text: string, now = Date.now()
   // La clave incluye `ts`: dos guardados en el mismo milisegundo (solo en tests) no deben pisarse.
   let ts = now;
   while (existing.some((b) => b.ts === ts)) ts += 1;
-  const record: BackupRecord = { todoId, ts, text, hash, words: countWords(splitDocument(text).tabs.join('\n')) };
+  const record: BackupRecord = { todoId, ts, text, hash, words: countWords(allTexts(splitDocument(text).tabs).join('\n')) };
   await tx.store.put(record);
   const sorted = [...existing, record].sort((a, b) => b.ts - a.ts);
   for (const old of sorted.slice(HISTORY_KEEP)) await tx.store.delete([todoId, old.ts]);

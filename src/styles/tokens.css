@@ -41,6 +41,9 @@
   --panel-border: #e3e1db;
   /* Fondo de las líneas de título: más oscuro que el fondo (modo claro), bien contrastado. */
   --heading-bg: #e4e1da;
+  /* Fondo de las subtabs en la barra: algo más oscuro que el fondo; la activa, un punto más. */
+  --tab-sub-bg: #ebe9e4;
+  --tab-sub-bg-active: #dcd9d1;
   /* Opacidad de los elementos de las esquinas (marca, menú). */
   --chrome-opacity: 0.35;
   --chrome-opacity-hover: 0.85;
@@ -87,6 +90,8 @@
   --panel-border: #2a2927;
   /* Fondo de las líneas de título: más claro que el fondo (modo oscuro), bien contrastado. */
   --heading-bg: #232321;
+  --tab-sub-bg: #1c1c1b;
+  --tab-sub-bg-active: #2c2c2a;
   --chrome-opacity: 0.85;
   --chrome-opacity-hover: 1;
 }

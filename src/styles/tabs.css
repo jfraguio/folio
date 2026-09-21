@@ -1,16 +1,22 @@
 /*
  * Barra de tabs superior.
  *
- * Hay entre 1 y 10 tabs; se crean y se quitan desde el menú, la barra solo las muestra.
+ * Hay entre 1 y 10 tabs; se crean y se quitan desde el menú, la barra solo las muestra. Tras
+ * ellas, separadas por un hueco y con fondo más oscuro, van las subtabs (de 0 a 10) de la tab
+ * abierta.
  *
- * Escritorio: cada tab mide como mucho 1/N del ancho (N = --tab-count, el máximo, que fija
- * TabBar.ts), así entran siempre todas, el hueco de cada una mide lo mismo haya las que haya y
- * los títulos largos se recortan con puntos suspensivos. La barra es discreta por defecto y
- * gana contraste al pasar el ratón.
+ * Dos capas: `.tab-bar` es la franja fija con el fondo del tema (tapa el texto que pasa por
+ * debajo y deja hueco a la marca «TO-DO»), y `.tab-bar__strip` la tira con los botones, que se
+ * desplaza en horizontal cuando no caben (sin barra de scroll visible, con un degradado en los
+ * bordes); la activa se centra sola al cambiar (TabBar.scrollActiveIntoView).
  *
- * Móvil (≤ 700px): no hay sitio para 10 títulos. Las tabs conservan su tamaño natural y la barra
- * se desplaza en horizontal con el dedo, con imán a cada tab; la activa se centra sola al cambiar
- * (TabBar.scrollActiveIntoView). Un degradado en los bordes insinúa que hay más a los lados.
+ * Escritorio: cada tab principal mide como mucho 1/N del ancho (N = --tab-count, el máximo, que
+ * fija TabBar.ts), así entran siempre todas, el hueco de cada una mide lo mismo haya las que haya
+ * y los títulos largos se recortan con puntos suspensivos. Las subtabs van detrás con su ancho
+ * natural. La barra es discreta por defecto y gana contraste al pasar el ratón.
+ *
+ * Móvil (≤ 700px): no hay sitio para 10 títulos. Las tabs conservan su tamaño natural y la tira
+ * se desplaza con el dedo, con imán a cada tab.
  */
 
 .tab-bar {
@@ -21,9 +27,7 @@
   right: 0;
   height: var(--tab-bar-height); /* cubre el padding superior del contenido */
   padding: 1.1rem 7rem 0 1.1rem; /* deja hueco a la marca «TO-DO» a la derecha */
-  display: flex;
-  align-items: flex-start;
-  gap: var(--tab-gap);
+  box-sizing: border-box;
   z-index: 5;
   /* Fondo opaco con el color del tema: el texto no debe verse por debajo al hacer scroll.
      Sin translucencia: la barra debe tapar por completo (sin stacking por opacity). */
@@ -33,9 +37,31 @@
   -webkit-user-select: none;
 }
 
+.tab-bar__strip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tab-gap);
+  /* Desplazamiento horizontal cuando tabs y subtabs no caben. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  /* Fade en los bordes: hay más tabs a los lados. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 0.75rem, #000 calc(100% - 0.75rem), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 0.75rem, #000 calc(100% - 0.75rem), transparent);
+  /* Los 0.75rem del degradado a cada lado se compensan para que la primera tab no nazca difuminada. */
+  margin: 0 -0.75rem;
+  padding: 0 0.75rem;
+}
+
+.tab-bar__strip::-webkit-scrollbar {
+  display: none;
+}
+
 .tab-bar__tab {
   --tab-max: calc((100% - (var(--tab-count) - 1) * var(--tab-gap)) / var(--tab-count));
-  flex: 0 1 auto;
+  /* Sin encoger: si no cabe todo, la tira se desplaza en vez de estrechar las tabs. */
+  flex: 0 0 auto;
   min-width: min(1.7rem, var(--tab-max));
   max-width: var(--tab-max);
   box-sizing: border-box;
@@ -64,15 +90,32 @@
   background: var(--sel);
 }
 
+/* ---------- Subtabs ----------
+   Fondo algo más oscuro que el de la barra, y un hueco mayor entre la última tab principal y la
+   primera subtab. La activa lleva además el borde y el color de texto de cualquier tab activa. */
+
+.tab-bar__tab--sub {
+  background: var(--tab-sub-bg);
+}
+
+.tab-bar__tab:not(.tab-bar__tab--sub) + .tab-bar__tab--sub {
+  margin-left: 0.75rem;
+}
+
+.tab-bar__tab--sub.tab-bar__tab--active {
+  background: var(--tab-sub-bg-active);
+}
+
 /* ---------- Modo zen: desaparecen las tabs ----------
-   Solo queda el título de la tab abierta, que al ocultarse las demás pasa a ocupar el primer
-   hueco. Se muestra como texto, sin píldora ni fondo, y no reacciona al ratón. */
+   Solo queda el título de la tab (o subtab) abierta, que al ocultarse las demás pasa a ocupar el
+   primer hueco. Se muestra como texto, sin píldora ni fondo, y no reacciona al ratón. */
 
 html[data-zen] .tab-bar__tab:not(.tab-bar__tab--active) {
   display: none;
 }
 
 html[data-zen] .tab-bar__tab--active {
+  margin-left: 0;
   border-color: transparent;
   background: transparent;
   color: var(--fg-dim);
@@ -94,34 +137,24 @@ html[data-zen] .tab-bar {
     --tab-gap: 6px;
     /* Empieza bajo el notch; el alto total lo fija --tab-bar-height (tokens.css). */
     padding: calc(8px + var(--safe-top)) calc(1rem + var(--safe-right)) 8px calc(1rem + var(--safe-left));
-    align-items: center;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x proximity;
-    scroll-padding-inline: 1rem;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    /* El gesto horizontal es de la barra; el vertical sigue siendo del editor. */
-    touch-action: pan-x;
-    overscroll-behavior-x: contain;
-    /* Fade en los bordes: hay más tabs a los lados. */
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
   }
 
-  .tab-bar::-webkit-scrollbar {
-    display: none;
+  .tab-bar__strip {
+    align-items: center;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+    /* El gesto horizontal es de la tira; el vertical sigue siendo del editor. */
+    touch-action: pan-x;
   }
 
   .tab-bar__tab {
     /* Tamaño natural: el ancho lo marca el título, con un tope para los muy largos. */
-    flex: 0 0 auto;
     min-width: var(--touch-target);
     max-width: 42vw;
     min-height: 36px;
     line-height: 34px;
     padding: 0 14px;
-    font-size: var(--text-size);
     scroll-snap-align: center;
     touch-action: pan-x;
   }
