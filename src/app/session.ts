@@ -165,8 +165,10 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     const spellExt = spellcheck({ service: spell, dictionary });
     const commands = new CommandRegistry();
 
-    // 6. Tabs y editor.
-    let active = Math.min(Math.max(prefs.get('lastTab'), 0), tabs.length - 1);
+    // 6. Tabs y editor. Al entrar se abre siempre la primera tab: la sesión no recuerda la última
+    // activa (hubo una pref `todo.lastTab`; se retiró porque la barra arrancaba marcando la tab 1
+    // con el contenido de otra).
+    let active = 0;
     /** `true` mientras se vuelca en el editor la versión del disco: ese cambio no es del usuario. */
     let syncingFromDisk = false;
 
@@ -174,6 +176,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       tabs,
       onSelect: (i) => switchTab(i),
     });
+    tabBar.setActive(active);
     root.appendChild(tabBar.root);
     disposers.push(() => tabBar.root.remove());
     // La barra no debe robar el foco al editor: así al pulsar una tab el cursor (y en táctil el
@@ -213,7 +216,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     /** Vuelca la tab `i` en el editor y la marca como activa (sin tocar el contenido de ninguna). */
     function showTab(i: number, keepFocus: boolean): void {
       active = i;
-      prefs.set('lastTab', i);
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: tabs[i] ?? '' },
         selection: { anchor: (tabs[i] ?? '').length },
@@ -386,10 +388,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       tabs.splice(0, tabs.length, ...split.tabs);
       dictionary.load(split.words);
       // El disco puede traer menos tabs de las que había: la activa no puede quedar fuera.
-      if (active >= tabs.length) {
-        active = tabs.length - 1;
-        prefs.set('lastTab', active);
-      }
+      if (active >= tabs.length) active = tabs.length - 1;
       const next = tabs[active] ?? '';
       const head = Math.min(view.state.selection.main.head, next.length);
       syncingFromDisk = true;
@@ -497,7 +496,9 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           );
         },
       },
-      // El modo zen va primero en el menú (el orden de registro es el del menú).
+      // El orden de registro es el del menú: Modo zen, Tema, Pantalla completa, Corrector,
+      // Diccionario, Crear pestaña, Eliminar pestaña, Historial; después, las opciones que solo
+      // aparecen en situaciones concretas (palabra bajo el cursor, modo degradado, error de guardado).
       {
         id: 'zen.toggle',
         label: () => (prefs.get('zen') ? 'Desactivar modo zen' : 'Modo zen'),
@@ -509,6 +510,20 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         label: () => (document.documentElement.dataset.theme === 'dark' ? 'Tema claro' : 'Tema oscuro'),
         keywords: 'modo oscuro claro noche',
         run: () => prefs.set('theme', document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'),
+      },
+      {
+        id: 'fullscreen',
+        label: () => (document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa'),
+        // iPhone no tiene API de pantalla completa: mejor no ofrecerla que fallar al elegirla.
+        when: () => typeof document.documentElement.requestFullscreen === 'function',
+        run: async () => {
+          try {
+            if (document.fullscreenElement) await document.exitFullscreen();
+            else await document.documentElement.requestFullscreen();
+          } catch {
+            notice('El navegador no permite la pantalla completa aquí.');
+          }
+        },
       },
       {
         id: 'spell.toggle',
@@ -524,6 +539,21 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         when: () => prefs.get('spellEnabled'),
         run: () => openDictionaryManager(dictionary, reloadSpell, focusEditor),
       },
+      // Crear y quitar tabs. Se quita solo la tab abierta, y solo si está vacía.
+      {
+        id: 'tab.create',
+        label: 'Crear pestaña',
+        keywords: 'nueva tab añadir',
+        when: () => tabs.length < TAB_COUNT,
+        run: () => addTab(),
+      },
+      {
+        id: 'tab.remove',
+        label: () => `Eliminar pestaña ${active + 1}`,
+        keywords: 'quitar borrar tab',
+        when: () => canRemoveTab(active),
+        run: () => removeTab(active),
+      },
       {
         id: 'history',
         label: 'Historial',
@@ -537,20 +567,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           }
           await backupReady; // que la versión de apertura, si la hay, ya esté en la lista
           openHistory(todoId, file.name, { saveNow: () => history.saveNow(), restoreFocus: focusEditor });
-        },
-      },
-      {
-        id: 'fullscreen',
-        label: () => (document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa'),
-        // iPhone no tiene API de pantalla completa: mejor no ofrecerla que fallar al elegirla.
-        when: () => typeof document.documentElement.requestFullscreen === 'function',
-        run: async () => {
-          try {
-            if (document.fullscreenElement) await document.exitFullscreen();
-            else await document.documentElement.requestFullscreen();
-          } catch {
-            notice('El navegador no permite la pantalla completa aquí.');
-          }
         },
       },
       {
@@ -621,21 +637,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         hidden: true,
         run: () => switchTab(i),
       })),
-      // Crear y quitar tabs: al final del menú. Se quita solo la tab abierta, y solo si está vacía.
-      {
-        id: 'tab.create',
-        label: 'Crear pestaña',
-        keywords: 'nueva tab añadir',
-        when: () => tabs.length < TAB_COUNT,
-        run: () => addTab(),
-      },
-      {
-        id: 'tab.remove',
-        label: () => `Eliminar pestaña ${active + 1}`,
-        keywords: 'quitar borrar tab',
-        when: () => canRemoveTab(active),
-        run: () => removeTab(active),
-      },
     );
 
     // 11. Atajos y ciclo de vida.

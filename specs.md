@@ -222,9 +222,9 @@ interface FileAdapter {
 - Entre 1 y 10 tabs, numeradas por posición. Un archivo nuevo tiene una.
 - **Nombre**: primera palabra del contenido (`/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/u`, como `tabTitle` de Folio), truncada a 16 caracteres con `…` si es más larga; si la tab está vacía, su número (`1`…`10`).
 - Cambiar de tab: clic, o atajos (ver §9). Al cambiar, el editor muestra el contenido de la nueva tab y el foco vuelve al texto (cursor al final, como en `Notes.ts`).
-- Se recuerda la última tab activa durante la sesión (y puede persistirse en `localStorage`, clave `todo.lastTab`).
-- **Crear**: opción «Crear pestaña» al final del menú, visible mientras haya menos de 10 tabs; añade una tab vacía al final y pasa a ella.
-- **Eliminar**: opción «Eliminar pestaña N» (N = la tab abierta) al final del menú, visible solo si la tab abierta está vacía (su nombre es su número) y no es la única; al elegirla se quita y pasa a estar activa la que ocupa su sitio (o la última). Nunca se borra texto: una tab con contenido no se puede eliminar.
+- Al entrar en la aplicación se abre siempre la primera tab con su contenido. La tab activa no se persiste entre sesiones (hubo una clave `todo.lastTab`; se retiró).
+- **Crear**: opción «Crear pestaña» del menú (§8.2), visible mientras haya menos de 10 tabs; añade una tab vacía al final y pasa a ella.
+- **Eliminar**: opción «Eliminar pestaña N» (N = la tab abierta) del menú (§8.2), visible solo si la tab abierta está vacía (su nombre es su número) y no es la única; al elegirla se quita y pasa a estar activa la que ocupa su sitio (o la última). Nunca se borra texto: una tab con contenido no se puede eliminar.
 - Los atajos `Mod+N` y los dígitos con el menú abierto solo actúan si esa tab existe.
 
 ### 5.2. Datos
@@ -347,16 +347,20 @@ El menú es un **overlay tipo paleta de comandos**, idéntico en comportamiento 
 
 ### 8.2. Contenido del menú (orden exacto)
 
-1. **Tema claro/oscuro** — etiqueta dinámica: «Tema oscuro» si está en claro, «Tema claro» si está en oscuro. Persiste en `localStorage` (`todo.theme`: `light` | `dark` | `system`).
-2. **Activar/Desactivar corrector** — etiqueta dinámica según el estado. Persiste (`todo.spell.enabled`).
-3. **Diccionario** — abre el gestor del diccionario personal (§7.1).
-4. **Historial** — abre el panel de historial (§8.3).
+1. **Modo zen / Desactivar modo zen** — etiqueta dinámica. Persiste (`todo.zen`).
+2. **Tema claro/oscuro** — etiqueta dinámica: «Tema oscuro» si está en claro, «Tema claro» si está en oscuro. Persiste en `localStorage` (`todo.theme`: `light` | `dark` | `system`).
+3. **Pantalla completa / Salir de pantalla completa** — solo si el navegador tiene la API (§10.2). Sin atajo.
+4. **Activar/Desactivar corrector** — etiqueta dinámica según el estado. Persiste (`todo.spell.enabled`).
+5. **Diccionario** — abre el gestor del diccionario personal (§7.1). Solo con el corrector activado.
+6. **Crear pestaña** — mientras haya menos de 10 tabs (§5).
+7. **Eliminar pestaña N** — solo si la tab abierta está vacía y no es la única (§5).
+8. **Historial** — abre el panel de historial (§8.3). No en modo degradado.
 
-Entradas condicionales adicionales (al estilo de Folio, si se decide incluirlas):
+Entradas condicionales adicionales, después de las anteriores:
 
-- «Añadir «palabra» al diccionario» — solo cuando el cursor está sobre una palabra (primera posición).
-- «Guardar como…» / «Descargar el .md» — solo en modo degradado o tras error de guardado.
-- «Pantalla completa» / «Salir de pantalla completa» — ver §10.2; puede vivir solo como atajo o también como entrada del menú. **Decisión recomendada:** incluirla como quinta entrada del menú para que sea descubrible, ya que el enunciado exige el mecanismo.
+- «Añadir «palabra» al diccionario» — solo con el corrector activado y el cursor sobre una palabra.
+- «Descargar el .md» — solo en modo degradado.
+- «Reintentar guardado» — solo tras un error de guardado.
 
 ### 8.3. Historial
 
@@ -428,7 +432,6 @@ Mensajes de una línea autodescartables abajo en el centro (`.notice` de Folio),
 |---|---|
 | `todo.theme` | `light` \| `dark` \| `system` |
 | `todo.spell.enabled` | `true` \| `false` |
-| `todo.lastTab` | `0`–`9` |
 | `todo.zen` | `true` \| `false` |
 
 El atributo `data-theme` se aplica en `<html>` con un script inline en `index.html` antes del primer render (anti-parpadeo), igual que en Folio.

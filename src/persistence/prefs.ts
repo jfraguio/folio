@@ -3,7 +3,6 @@ export type Theme = 'light' | 'dark' | 'system';
 export interface Prefs {
   theme: Theme;
   spellEnabled: boolean;
-  lastTab: number;
   /** Modo zen: solo la tab abierta, tipografía de Folio y sustituciones al teclear (— « »). */
   zen: boolean;
 }
@@ -11,14 +10,12 @@ export interface Prefs {
 const DEFAULTS: Prefs = {
   theme: 'system',
   spellEnabled: true,
-  lastTab: 0,
   zen: false,
 };
 
 const KEYS: Record<keyof Prefs, string> = {
   theme: 'todo.theme',
   spellEnabled: 'todo.spell.enabled',
-  lastTab: 'todo.lastTab',
   zen: 'todo.zen',
 };
 
@@ -32,10 +29,6 @@ class PrefsStore {
     if (raw === null) return DEFAULTS[key];
     const def = DEFAULTS[key];
     if (typeof def === 'boolean') return (raw === 'true') as Prefs[K];
-    if (typeof def === 'number') {
-      const n = Number(raw);
-      return (Number.isFinite(n) ? n : def) as Prefs[K];
-    }
     return raw as Prefs[K];
   }
 
