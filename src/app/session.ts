@@ -338,7 +338,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       // Alguien guardó después que nosotros: se descarta lo local y se carga lo del disco.
       onNewerOnDisk: () => reloadFromDisk({ unlessSaving: false }),
       onError: (kind) => {
-        if (kind === 'permission') notice('to-do perdió el permiso de escritura. Pulsa el punto de estado para recuperarlo.', 6000);
+        if (kind === 'permission') notice('folio perdió el permiso de escritura. Pulsa el punto de estado para recuperarlo.', 6000);
         else if (kind === 'not-found') notice('El archivo ya no está donde estaba. Pulsa el punto de estado para guardarlo en otro sitio.', 6000);
       },
     });
@@ -350,7 +350,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     if (recovered && !degraded) autosave.markDirty(); // el borrador recuperado debe escribirse
     dictionary.onChange(markChanged);
 
-    // La marca «TO-DO» muestra al pasar el ratón el archivo abierto y la fecha de su última
+    // La marca «FOLIO» muestra al pasar el ratón el archivo abierto y la fecha de su última
     // modificación correcta en disco (el mtime devuelto por la última escritura que funcionó).
     // La File System Access API no expone la ruta completa del archivo, solo su nombre.
     const brand = document.querySelector<HTMLElement>('.brand');
@@ -469,7 +469,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       lastKnown: () => autosave.lastKnownMtime,
       canReload: () => autosave.state !== 'saving',
       onChange: () => reloadFromDisk({ unlessSaving: true }),
-      onError: (e) => console.debug('[to-do] no se pudo comprobar el archivo', e),
+      onError: (e) => console.debug('[folio] no se pudo comprobar el archivo', e),
     });
     disposers.push(() => watcher.dispose());
     if (fsAdapter) watcher.start();

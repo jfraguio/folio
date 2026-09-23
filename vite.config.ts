@@ -30,8 +30,8 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'TO-DO',
-        short_name: 'TO-DO',
+        name: 'FOLIO',
+        short_name: 'FOLIO',
         description: 'Un bloc de notas persistente y silencioso.',
         lang: 'es',
         start_url: base,
@@ -48,7 +48,7 @@ export default defineConfig({
           { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
         // Archivos que la app instalada se ofrece a abrir desde el sistema: los `.txt` propios y
-        // los `.md` de versiones anteriores. Registrar `.txt` hace que el sistema ofrezca to-do para
+        // los `.md` de versiones anteriores. Registrar `.txt` hace que el sistema ofrezca folio para
         // cualquier `.txt`; un texto plano ajeno se carga en la tab 1 sin romper nada.
         file_handlers: [
           {

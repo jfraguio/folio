@@ -19,7 +19,7 @@ const adapter = createAdapter();
 
 initPrefsEffects();
 applyTouchFlag();
-document.body.appendChild(el('h1', { class: 'brand' }, 'TO-DO'));
+document.body.appendChild(el('h1', { class: 'brand' }, 'FOLIO'));
 
 /** Sesión de edición viva, si la hay. Solo puede haber una: abrir otro archivo cierra la anterior. */
 let session: Session | null = null;

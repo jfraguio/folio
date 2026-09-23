@@ -21,7 +21,7 @@ export const HISTORY_INTERVAL_MS = 60 * 60 * 1000;
  * SHA-256 del contenido (guardado con cada versión), así una hora sin tocar el archivo no consume
  * una de las HISTORY_KEEP plazas. Se conservan las HISTORY_KEEP más recientes; la más antigua
  * desaparece al guardar la siguiente. Son de solo lectura: la única salida es descargarlas como
- * `.txt`; to-do nunca vuelca una versión sobre el archivo ni el editor.
+ * `.txt`; folio nunca vuelca una versión sobre el archivo ni el editor.
  */
 
 /** SHA-256 del texto, en hexadecimal. */
@@ -82,9 +82,9 @@ async function latestVersion(todoId: string): Promise<BackupRecord | undefined> 
   return cursor?.value;
 }
 
-/** Nombre de archivo para descargar una versión: `<to-do> — 2026-09-11 14.30.txt`. */
+/** Nombre de archivo para descargar una versión: `<folio> — 2026-09-11 14.30.txt`. */
 export function versionFileName(fileName: string, version: Pick<BackupRecord, 'ts'>): string {
-  const base = stripTodoExtension(fileName || 'to-do');
+  const base = stripTodoExtension(fileName || 'folio');
   const d = new Date(version.ts);
   const pad = (n: number) => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}`;

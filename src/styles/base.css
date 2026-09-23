@@ -229,7 +229,7 @@ input:focus-visible {
 .done-count {
   position: fixed;
   top: calc(1.1rem + var(--safe-top));
-  right: calc(4.2rem + var(--safe-right)); /* a la izquierda de la marca «TO-DO» */
+  right: calc(4.2rem + var(--safe-right)); /* a la izquierda de la marca «FOLIO» */
   margin: 0;
   height: 22px;
   line-height: 22px;

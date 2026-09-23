@@ -1,5 +1,7 @@
 /**
- * Formato del archivo de to-do (`.txt`; los `.md` anteriores tienen el mismo contenido).
+ * Formato del archivo de folio (`.txt`; los `.md` anteriores tienen el mismo contenido).
+ * Los marcadores conservan el prefijo `todo:` del nombre anterior de la app, para que los
+ * archivos existentes se sigan leyendo igual.
  *
  * El documento son las tabs (de 1 a TAB_COUNT), separadas por marcadores `[todo:tab N]` en
  * línea propia, donde N es la posición de la tab. Cada tab puede tener hasta TAB_COUNT subtabs,
@@ -19,8 +21,8 @@
  *   Contenido de la tercera tab (la segunda está vacía, y la subtab 1.2 también).
  *
  *   <!-- todo:diccionario
- *   Palabras que el corrector ortográfico de to-do acepta, una por línea.
- *   Este bloque lo mantiene to-do; no forma parte del texto.
+ *   Palabras que el corrector ortográfico de folio acepta, una por línea.
+ *   Este bloque lo mantiene folio; no forma parte del texto.
  *
  *   Aldebarán
  *   Kaelith
@@ -44,8 +46,8 @@ const TAB_RE = /^\[todo:tab (\d+)(?:\.(\d+))?\]$/gm;
 const DICTIONARY = {
   marker: 'diccionario',
   description: [
-    'Palabras que el corrector ortográfico de to-do acepta, una por línea.',
-    'Este bloque lo mantiene to-do; no forma parte del texto.',
+    'Palabras que el corrector ortográfico de folio acepta, una por línea.',
+    'Este bloque lo mantiene folio; no forma parte del texto.',
   ],
 };
 

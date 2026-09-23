@@ -6,7 +6,7 @@
  * abierta.
  *
  * Dos capas: `.tab-bar` es la franja fija con el fondo del tema (tapa el texto que pasa por
- * debajo y deja hueco a la marca «TO-DO»), y `.tab-bar__strip` la tira con los botones, que se
+ * debajo y deja hueco a la marca «FOLIO»), y `.tab-bar__strip` la tira con los botones, que se
  * desplaza en horizontal cuando no caben (sin barra de scroll visible, con un degradado en los
  * bordes); la activa se centra sola al cambiar (TabBar.scrollActiveIntoView).
  *
@@ -26,7 +26,7 @@
   left: 0;
   right: 0;
   height: var(--tab-bar-height); /* cubre el padding superior del contenido */
-  padding: 1.1rem 7rem 0 1.1rem; /* deja hueco a la marca «TO-DO» a la derecha */
+  padding: 1.1rem 7rem 0 1.1rem; /* deja hueco a la marca «FOLIO» a la derecha */
   box-sizing: border-box;
   z-index: 5;
   /* Fondo opaco con el color del tema: el texto no debe verse por debajo al hacer scroll.
@@ -123,7 +123,7 @@ html[data-zen] .tab-bar__tab--active {
 }
 
 /* En modo zen la barra no tapa el texto: sin fondo, el texto sube hasta el borde superior de la
-   ventana y el título de la tab y la marca «TO-DO» quedan superpuestos, tenues. La barra
+   ventana y el título de la tab y la marca «FOLIO» quedan superpuestos, tenues. La barra
    tampoco intercepta el ratón (el título ya no es interactivo). */
 html[data-zen] .tab-bar {
   background: transparent;

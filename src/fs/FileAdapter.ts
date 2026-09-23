@@ -39,10 +39,10 @@ export const DEFAULT_TODO_CONTENT = '';
  */
 export const TODO_EXTENSION = '.txt';
 export const TODO_MIME = 'text/plain';
-export const DEFAULT_TODO_NAME = `to-do${TODO_EXTENSION}`;
+export const DEFAULT_TODO_NAME = `folio${TODO_EXTENSION}`;
 /** Extensiones que se aceptan al abrir: la actual y las de archivos anteriores. */
 export const TODO_OPEN_EXTENSIONS = ['.txt', '.md', '.markdown'];
-/** Quita la extensión de un nombre de archivo de to-do (`.txt` o las antiguas) para mostrarlo. */
+/** Quita la extensión de un nombre de archivo de folio (`.txt` o las antiguas) para mostrarlo. */
 export const stripTodoExtension = (name: string): string => name.replace(/\.(txt|md|markdown)$/i, '');
 
 export class AbortedByUser extends Error {

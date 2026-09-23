@@ -16,7 +16,7 @@ export interface DraftRecord {
 /**
  * Versión del historial: el archivo completo en un instante dado. Se guarda una cada hora mientras la
  * aplicación está abierta, al abrir si hace más de una hora de la última, y a petición del usuario.
- * Solo lectura y solo descargable; to-do nunca la vuelca sobre el archivo.
+ * Solo lectura y solo descargable; folio nunca la vuelca sobre el archivo.
  */
 export interface BackupRecord {
   todoId: string;
@@ -40,6 +40,9 @@ let dbPromise: Promise<IDBPDatabase<TodoDB>> | null = null;
 
 export function getDB(): Promise<IDBPDatabase<TodoDB>> {
   if (!dbPromise) {
+    // La BD conserva el nombre anterior de la app ('to-do'), igual que las claves `todo.*` de
+    // localStorage y los canales/locks: así se mantienen los datos al renombrar a folio, y no se
+    // pisan con los del Folio original, que vive en el mismo origen (jfraguio.github.io).
     dbPromise = openDB<TodoDB>('to-do', 2, {
       async upgrade(db, oldVersion, _newVersion, tx) {
         if (oldVersion < 1) {

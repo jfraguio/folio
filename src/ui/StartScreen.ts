@@ -35,7 +35,7 @@ export function renderStartScreen(root: HTMLElement, o: StartScreenOptions): voi
           { class: 'start__note' },
           o.touch
             ? 'En el móvil los cambios se guardan como borrador en este navegador; puedes descargar el .txt desde el menú cuando quieras.'
-            : 'Tu navegador no permite guardar directamente en el archivo. to-do guardará un borrador local y podrás descargar el .txt cuando quieras. Para la experiencia completa, usa Chrome o Edge.',
+            : 'Tu navegador no permite guardar directamente en el archivo. folio guardará un borrador local y podrás descargar el .txt cuando quieras. Para la experiencia completa, usa Chrome o Edge.',
         ),
     ),
   );

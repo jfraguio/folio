@@ -1,6 +1,8 @@
-# TO-DO — Especificación funcional y técnica
+# FOLIO (antes TO-DO) — Especificación funcional y técnica
 
-> Documento de especificación para implementar **to-do**, una aplicación web independiente cuya estética y mecanismos se inspiran directamente en **Folio** (`https://github.com/jfraguio/folio`).  
+> **Renombrado:** el proyecto se llamaba **to-do** y ahora se llama **folio** (directorio, repositorio `jfraguio/folio`, `https://jfraguio.github.io/folio/`, marca «FOLIO», archivo nuevo `folio.txt`). En este documento «to-do» se refiere a esta app, y «Folio» al editor de novelas original, ahora en `https://github.com/jfraguio/folio-backup`. Los identificadores internos conservan el nombre anterior para no perder datos ni romper archivos: marcadores `[todo:tab N]` y `<!-- todo:diccionario -->`, claves `todo.*` de `localStorage`, BD IndexedDB `to-do` y canales/locks `to-do`.
+>
+> Documento de especificación para implementar **to-do**, una aplicación web independiente cuya estética y mecanismos se inspiran directamente en **Folio** (`https://github.com/jfraguio/folio-backup`).  
 > **Regla de oro:** no se toca ni se modifica nada del proyecto Folio. TO-DO es un proyecto completamente nuevo, en su propio directorio/repositorio. Se reutilizan sus ideas, patrones y tokens de diseño, copiando o adaptando código cuando convenga, pero jamás enlazando ni editando el código de Folio.
 
 ---
@@ -42,7 +44,7 @@ Principios fundamentales (heredados de Folio):
 | **Diccionario personal** | Opción del menú. Lista de palabras aceptadas, persistente dentro del propio `.txt`, con gestión (ver/quitar). |
 | **Historial** | Opción del menú. Versiones del archivo: al abrir, cada hora y a petición («Guardar versión»); 50 máx.; solo lectura, descargables (§8.3). |
 | **Pantalla completa** | Entrar/salir de pantalla completa (acción explícita, nunca automática). |
-| **Marca de la app** | Arriba a la derecha, con la misma estética que «FOLIO», el texto **«TO-DO»**. |
+| **Marca de la app** | Arriba a la derecha, con la misma estética que «FOLIO», el texto **«FOLIO»**. |
 
 ### 2.2. Lo que NO tiene to-do (excluido a propósito)
 
@@ -59,7 +61,7 @@ Principios fundamentales (heredados de Folio):
 ### Funcionalidad propia de to-do (no heredada de Folio)
 
 - **TO-DOs resueltos**: una línea que empieza por `--` se muestra **tachada entera** y atenuada (`.cm-done`). El documento sigue siendo texto plano; es solo decoración.
-- **Contador de resueltos**: a la izquierda de la marca «TO-DO», en rojo (`--misspell`), cuenta las líneas `--…` (resueltas) de la **tab abierta**. Se oculta si no hay ninguna.
+- **Contador de resueltos**: a la izquierda de la marca «FOLIO», en rojo (`--misspell`), cuenta las líneas `--…` (resueltas) de la **tab abierta**. Se oculta si no hay ninguna.
 - **Enlaces clicables**: las URLs (`https://…`, `www.…`) se subrayan y se abren en pestaña nueva con `⌘/Ctrl+clic`. El corrector las ignora.
 
 ---
@@ -116,7 +118,7 @@ Se copian **literalmente** de Folio:
 
 ### 3.3. Elementos fijos (chrome) con estética Folio
 
-- **Marca «TO-DO»**: `position: fixed; top: 1.1rem; right: 1.1rem;` — tipografía pequeña (`0.72rem`), `letter-spacing: 0.08em`, mayúsculas, color `--fg-dim`, opacidad `--chrome-opacity-hover`, `user-select: none`. Igual que `.brand` de Folio, pero con el texto `TO-DO`.
+- **Marca «FOLIO»**: `position: fixed; top: 1.1rem; right: 1.1rem;` — tipografía pequeña (`0.72rem`), `letter-spacing: 0.08em`, mayúsculas, color `--fg-dim`, opacidad `--chrome-opacity-hover`, `user-select: none`. Igual que `.brand` de Folio, pero con el texto `FOLIO`.
 - **Botón de menú** (abajo a la izquierda): `position: fixed; left: 1.1rem; bottom: 1.1rem;` 22×22 px, tres líneas SVG (`viewBox 0 0 14 10`, líneas en y=1,5,9, `stroke-width: 1`), color `--fg-dim`, opacidad `--chrome-opacity` → `--chrome-opacity-hover` al pasar el ratón. `title`/`aria-label`: «Menú (⌘K)» / «Menú (Ctrl+K)» según plataforma.
 - **Punto de estado del guardado** (abajo a la derecha): ver §6.1.
 
@@ -214,7 +216,7 @@ interface FileAdapter {
 
 - **`FsAccessAdapter`**: File System Access API (`showOpenFilePicker` / `showSaveFilePicker` / `createWritable`), persiste el handle en IndexedDB. Navegadores Chromium de escritorio (≥ 108).
 - **`FallbackAdapter`** (Firefox/Safari): abrir con `<input type="file">`; `write()` no disponible; `saveAs()` descarga con `<a download>`. El borrador vivo hace de autosave. Aviso discreto de una línea en la pantalla inicial.
-- **Pantalla inicial mínima** (estilo Folio): «Abrir to-do», «Nuevo to-do» (sugiere `to-do.txt`), y «Continuar» si hay handle persistido. Tras cualquiera, se entra directamente en las tabs.
+- **Pantalla inicial mínima** (estilo Folio): «Abrir», «Nuevo» (sugiere `folio.txt`), y «Continuar» si hay handle persistido. Tras cualquiera, se entra directamente en las tabs.
 - `navigator.locks` + `BroadcastChannel` para evitar edición simultánea en dos pestañas (igual que Folio §9.7).
 
 ---
@@ -242,7 +244,7 @@ Cada tab puede tener de 0 a 10 subtabs: espacios de texto propios que cuelgan de
 - **Eliminar**: la misma opción de eliminar, con etiqueta «Eliminar subpestaña M» cuando la abierta es una subtab; visible solo si está vacía. Al elegirla se quita y pasa a estar activa la subtab que ocupa su sitio (o la última; sin subtabs, la tab madre).
 - Al entrar en la aplicación se abre la primera tab, nunca una subtab.
 - En modo zen se ve solo el título de la tab o subtab abierta, como hasta ahora.
-- **Desbordamiento**: si tabs y subtabs no caben en la barra, la tira de tabs se desplaza en horizontal (sin barra de scroll visible, con degradado en los bordes) y la activa se centra sola al cambiar. Las tabs principales conservan su hueco fijo (1/10 del ancho); las subtabs van con ancho natural detrás. La tira nunca pasa por debajo de la marca «TO-DO».
+- **Desbordamiento**: si tabs y subtabs no caben en la barra, la tira de tabs se desplaza en horizontal (sin barra de scroll visible, con degradado en los bordes) y la activa se centra sola al cambiar. Las tabs principales conservan su hueco fijo (1/10 del ancho); las subtabs van con ancho natural detrás. La tira nunca pasa por debajo de la marca «FOLIO».
 
 ### 5.3. Datos
 
@@ -428,9 +430,9 @@ Las subtabs van con Alt (⌥) y no con Shift porque en macOS `⌘⇧3`, `⌘⇧4
 
 `document.documentElement.requestFullscreen()` / `document.exitFullscreen()`, solo mediante acción explícita (menú o atajo). Nunca automática. `Esc` sale (nativo).
 
-### 10.2. Marca «TO-DO»
+### 10.2. Marca «FOLIO»
 
-`<h1 class="brand">TO-DO</h1>` fijo arriba a la derecha (§3.3). Al pasar el ratón, `title` con el nombre del archivo abierto y su última modificación en disco (igual que en Folio).
+`<h1 class="brand">FOLIO</h1>` fijo arriba a la derecha (§3.3). Al pasar el ratón, `title` con el nombre del archivo abierto y su última modificación en disco (igual que en Folio).
 
 ### 10.3. Focus mode
 
@@ -556,7 +558,7 @@ Adaptación de `session.ts` de Folio:
 - `getText()` = `joinDocument({ tabs, words: dictionary.list() })`.
 - Un único `EditorView`; al cambiar de tab se reemplaza el documento (`view.dispatch({ changes: { from: 0, to: doc.length, insert: tabs[i] } })`) o se recrea el estado. El corrector re-escanea automáticamente.
 - `markChanged()` en cada edición: liveDraft.schedule + autosave.markDirty.
-- Elementos fijos: `.brand` (TO-DO), `.menu-button`, `.status-dot` (esquina inferior derecha), `.tab-bar` (superior).
+- Elementos fijos: `.brand` (FOLIO), `.menu-button`, `.status-dot` (esquina inferior derecha), `.tab-bar` (superior).
 
 ---
 
@@ -573,12 +575,12 @@ Adaptación de `session.ts` de Folio:
 | `src/editor/theme.ts`, `spellcheck.ts`, `workers/spell.worker.ts`, `spell/` | **Copiar sin cambios funcionales.** |
 | `src/editor/focusMode.ts`, `typewriter.ts`, `typography.ts`, `chapters.ts`, `export/toTxt.ts`, `ui/WordCounter.ts` | **No se incluyen.** |
 | `src/fs/*` | **Copiar adaptando nombres** (`NovelFile` → `TodoFile`, `DEFAULT_NOVEL_CONTENT` → contenido vacío o `# ` no aplica: to-do arranca con las 10 tabs vacías, es decir, archivo vacío o con marcador inicial mínimo). |
-| `index.html` | **Copiar adaptando:** título `TO-DO`, claves `todo.*`. |
+| `index.html` | **Copiar adaptando:** título `FOLIO`, claves `todo.*`. |
 
 ### Nombre de la marca en el código
 
-- `document.title`: `TO-DO`.
-- `.brand` text: `TO-DO`.
+- `document.title`: `FOLIO`.
+- `.brand` text: `FOLIO`.
 - Prefijo de bloques: `todo:`.
 - Prefijo de claves: `todo.*`.
 
@@ -605,7 +607,7 @@ Adaptación de `session.ts` de Folio:
 7. Diccionario personal persistido en el bloque `<!-- todo:diccionario -->` del archivo.
 8. Historial: versiones (al abrir si hace más de 1 h, cada hora, botón «Guardar versión»; 50 máx.), solo descargables, nunca restaurables.
 9. Pantalla completa disponible (entrada de menú, sin atajo de teclado).
-10. Marca «TO-DO» arriba a la derecha con la estética de «FOLIO».
+10. Marca «FOLIO» arriba a la derecha con la estética de «FOLIO».
 11. Todo el contenido persiste en un único `.txt` con la estructura de marcadores `[todo:tab N]`.
 12. **El proyecto Folio no se modifica en absoluto.**
 

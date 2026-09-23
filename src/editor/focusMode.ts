@@ -15,7 +15,7 @@ export interface ParagraphRange {
   toLine: number;
 }
 
-/** La línea del documento que contiene el cursor: en to-do cada línea es un párrafo. */
+/** La línea del documento que contiene el cursor: en folio cada línea es un párrafo. */
 export function paragraphAt(state: EditorState, pos: number): ParagraphRange {
   const n = state.doc.lineAt(pos).number;
   return { fromLine: n, toLine: n };

@@ -79,7 +79,7 @@ export function openOverlay(panel: HTMLElement, o: OverlayOptions = {}): { close
 
 /**
  * El menú de la aplicación: una lista navegable con flechas y Enter, sin buscador.
- * Cierre con Esc o clic fuera. Es el único menú de to-do.
+ * Cierre con Esc o clic fuera. Es el único menú de folio.
  */
 export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
   const list = el('ul', { class: 'panel__list', tabIndex: -1, attrs: { role: 'listbox' } });

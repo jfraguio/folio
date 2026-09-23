@@ -1,4 +1,4 @@
-// Smoke test de to-do: levanta dist/ servido en http://localhost:8931 y recorre el flujo
+// Smoke test de folio: levanta dist/ servido en http://localhost:8931 y recorre el flujo
 // completo con el Chrome del sistema, inyectando una File System Access API en memoria
 // (sin diálogos nativos). Uso: node scripts/smoke.mjs
 import { chromium } from '/Users/franciscojfc/Documents/dev/PERSONAL/folio/node_modules/playwright-core/index.mjs';
@@ -34,12 +34,12 @@ const fsShim = `
       };
     }
     window.showSaveFilePicker = (opts) => {
-      const name = (opts && opts.suggestedName) || 'to-do.md';
+      const name = (opts && opts.suggestedName) || 'folio.txt';
       const s = load();
       if (!s.has(name)) { s.set(name, { content: '', lastModified: Date.now() }); save(s); }
       return Promise.resolve(makeHandle(name));
     };
-    window.showOpenFilePicker = () => Promise.resolve([makeHandle([...load().keys()][0] ?? 'to-do.md')]);
+    window.showOpenFilePicker = () => Promise.resolve([makeHandle([...load().keys()][0] ?? 'folio.txt')]);
     window.__fsRead = (name) => load().get(name)?.content;
   })();
 `;
@@ -60,7 +60,7 @@ await page.goto(BASE, { waitUntil: 'load' });
 // 1. Pantalla inicial con las acciones.
 await page.waitForSelector('.start__action');
 ok('pantalla inicial con Abrir/Nuevo', (await page.locator('.start__action').count()) >= 2);
-ok('marca TO-DO visible', (await page.locator('.brand').textContent()) === 'TO-DO');
+ok('marca FOLIO visible', (await page.locator('.brand').textContent()) === 'FOLIO');
 
 // 2. Nuevo archivo → entra en el editor.
 await page.getByRole('button', { name: 'NEW', exact: true }).click();
@@ -84,8 +84,8 @@ ok('tab con contenido usa la primera palabra', (await page.locator('.tab-bar__ta
 // 4. Autosave: el punto aparece (dirty) y desaparece tras el guardado.
 await page.waitForTimeout(1800); // debounce 1,5 s
 await page.waitForFunction(() => document.querySelector('.status-dot')?.dataset.state === 'saved', null, { timeout: 5000 });
-const savedMd = await page.evaluate(() => window.__fsRead('to-do.md'));
-ok('autosave escribió el .md con el marcador de tab', savedMd?.includes('[todo:tab 1]') && savedMd.includes('Compra semanal'));
+const savedMd = await page.evaluate(() => window.__fsRead('folio.txt'));
+ok('autosave escribió el .txt con el marcador de tab', savedMd?.includes('[todo:tab 1]') && savedMd.includes('Compra semanal'));
 
 // 5. Crear una tab desde el menú: pasa a estar activa y vacía; el menú ofrece eliminarla.
 const menuRun = async (label) => {
