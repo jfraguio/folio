@@ -2,8 +2,8 @@
  * Barra de tabs superior.
  *
  * Hay entre 1 y 10 tabs; se crean y se quitan desde el menú, la barra solo las muestra. Tras
- * ellas, separadas por un hueco y con fondo más oscuro, van las subtabs (de 0 a 10) de la tab
- * abierta.
+ * ellas, separadas por una barra vertical y con fondo más oscuro, van las subtabs (de 0 a 10) de
+ * la tab abierta.
  *
  * Dos capas: `.tab-bar` es la franja fija con el fondo del tema (tapa el texto que pasa por
  * debajo y deja hueco a la marca «FOLIO»), y `.tab-bar__strip` la tira con los botones, que se
@@ -17,10 +17,24 @@
  *
  * Móvil (≤ 700px): no hay sitio para 10 títulos. Las tabs conservan su tamaño natural y la tira
  * se desplaza con el dedo, con imán a cada tab.
+ *
+ * Espaciado: la distancia entre dos elementos seguidos se mide de texto a texto (o hasta la
+ * línea del separador) y es siempre la misma, D = 2 × --tab-inset + --tab-gap, donde
+ * --tab-inset es el relleno más el borde de 1px. Todas las tabs (principales y subtabs, activas
+ * o no) tienen el mismo relleno, así que basta el gap de la tira; el separador lleva un inset de
+ * margen a cada lado. La píldora (fondo de las subtabs y de la activa) es solo un resalte
+ * ceñido alrededor del texto: con poco relleno, entre píldoras queda casi el mismo hueco que
+ * entre textos, y el ritmo se lee igual con y sin fondo.
+ * Por eso las tabs no tienen ancho mínimo: una tab estrecha («2») quedaría centrada en una caja
+ * más ancha y con más aire que las demás.
  */
 
 .tab-bar {
-  --tab-gap: min(0.25rem, 0.8vw);
+  /* Relleno horizontal de cada tab (ceñido: la píldora abraza el texto) y hueco entre tabs.
+     Con los dos, D ≈ 24px en escritorio (ver «Espaciado» arriba). */
+  --tab-pad: min(0.3rem, 0.8vw);
+  --tab-gap: min(0.55rem, 1.75vw);
+  --tab-inset: calc(var(--tab-pad) + 1px);
   position: fixed;
   top: 0;
   left: 0;
@@ -62,7 +76,6 @@
   --tab-max: calc((100% - (var(--tab-count) - 1) * var(--tab-gap)) / var(--tab-count));
   /* Sin encoger: si no cabe todo, la tira se desplaza en vez de estrechar las tabs. */
   flex: 0 0 auto;
-  min-width: min(1.7rem, var(--tab-max));
   max-width: var(--tab-max);
   box-sizing: border-box;
   overflow: hidden;
@@ -71,7 +84,7 @@
   /* Mismo tamaño que el texto del editor, en ambos modos (tokens.css). */
   font-size: var(--text-size);
   line-height: 20px;
-  padding: 0 min(0.45rem, 1.2vw);
+  padding: 0 var(--tab-pad);
   border: 1px solid transparent;
   border-radius: 999px;
   color: var(--fg-dim);
@@ -91,15 +104,32 @@
 }
 
 /* ---------- Subtabs ----------
-   Fondo algo más oscuro que el de la barra, y un hueco mayor entre la última tab principal y la
-   primera subtab. La activa lleva además el borde y el color de texto de cualquier tab activa. */
+   Fondo algo más oscuro que el de la barra, y separadas de la última tab principal por una
+   barra vertical fina y tenue (.tab-bar__divider, solo visible si hay subtabs). La activa lleva
+   además el borde y el color de texto de cualquier tab activa. Espaciado: ver arriba. */
 
-.tab-bar__tab--sub {
+/* Con una subtab abierta, su tab madre lleva el mismo fondo que las subtabs, para ver de qué tab
+   son. Solo el fondo: el texto sigue atenuado, porque la abierta es la subtab. */
+.tab-bar__tab--sub,
+.tab-bar__tab--parent {
   background: var(--tab-sub-bg);
 }
 
-.tab-bar__tab:not(.tab-bar__tab--sub) + .tab-bar__tab--sub {
-  margin-left: 0.75rem;
+.tab-bar__divider {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 1px;
+  height: 14px;
+  /* Un inset a cada lado: del texto de la última principal a la línea, y de la línea al texto de
+     la primera subtab, hay lo mismo que entre dos textos. */
+  margin: 0 var(--tab-inset);
+  background: var(--fg-dim);
+  opacity: 0.55;
+  border-radius: 1px;
+}
+
+.tab-bar__divider[hidden] {
+  display: none;
 }
 
 .tab-bar__tab--sub.tab-bar__tab--active {
@@ -110,7 +140,8 @@
    Solo queda el título de la tab (o subtab) abierta, que al ocultarse las demás pasa a ocupar el
    primer hueco. Se muestra como texto, sin píldora ni fondo, y no reacciona al ratón. */
 
-html[data-zen] .tab-bar__tab:not(.tab-bar__tab--active) {
+html[data-zen] .tab-bar__tab:not(.tab-bar__tab--active),
+html[data-zen] .tab-bar__divider {
   display: none;
 }
 
@@ -134,7 +165,9 @@ html[data-zen] .tab-bar {
 
 @media (max-width: 700px) {
   .tab-bar {
-    --tab-gap: 6px;
+    /* D = 36px, como antes en móvil; --tab-inset se recalcula solo. */
+    --tab-pad: 10px;
+    --tab-gap: 14px;
     /* Empieza bajo el notch; el alto total lo fija --tab-bar-height (tokens.css). */
     padding: calc(8px + var(--safe-top)) calc(1rem + var(--safe-right)) 8px calc(1rem + var(--safe-left));
   }
@@ -149,12 +182,12 @@ html[data-zen] .tab-bar {
   }
 
   .tab-bar__tab {
-    /* Tamaño natural: el ancho lo marca el título, con un tope para los muy largos. */
-    min-width: var(--touch-target);
+    /* Tamaño natural: el ancho lo marca el título, con un tope para los muy largos. Sin ancho
+       mínimo (ver «Espaciado»): con el relleno, una tab de un dígito mide unos 32px de ancho y
+       36px de alto. */
     max-width: 42vw;
     min-height: 36px;
     line-height: 34px;
-    padding: 0 14px;
     scroll-snap-align: center;
     touch-action: pan-x;
   }

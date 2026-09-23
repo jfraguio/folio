@@ -49,11 +49,13 @@ describe('TabBar', () => {
     expect(tabsOf(bar)).toHaveLength(1);
   });
 
-  it('la barra solo contiene tabs: crear y quitar se hace desde el menú', () => {
+  it('la barra solo contiene tabs (y el separador decorativo): crear y quitar se hace desde el menú', () => {
     const bar = make(plain('a', ''));
     bar.setActive(1);
     const strip = bar.root.querySelector('[role="tablist"]')!;
-    expect([...strip.children].every((n) => n.getAttribute('role') === 'tab')).toBe(true);
+    const others = [...strip.children].filter((n) => n.getAttribute('role') !== 'tab');
+    expect(others.map((n) => n.className)).toEqual(['tab-bar__divider']);
+    expect(others[0]!.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('setActive cambia la tab marcada y centra la activa si la tira desborda', () => {
@@ -107,11 +109,42 @@ describe('TabBar', () => {
       expect(subsOf(bar)).toHaveLength(0);
     });
 
+    it('una barra vertical separa las principales de las subtabs, y solo se ve si hay subtabs', () => {
+      const tabs = [T('a', ['s1', 's2']), T('b')];
+      const bar = make(tabs);
+      const strip = bar.root.querySelector('[role="tablist"]')!;
+      const divider = strip.querySelector<HTMLElement>('.tab-bar__divider')!;
+      const order = () => [...strip.children].map((n) => n.textContent || '|');
+      expect(order()).toEqual(['a', 'b', '|', 's1', 's2']);
+      expect(divider.hidden).toBe(false);
+
+      bar.setActive(1); // la tab b no tiene subtabs
+      expect(divider.hidden).toBe(true);
+
+      // Al crear una tab principal, queda antes del separador.
+      tabs.push(T('c'));
+      bar.setActive(0);
+      expect(order()).toEqual(['a', 'b', 'c', '|', 's1', 's2']);
+      expect(divider.hidden).toBe(false);
+    });
+
     it('setActive(tab, sub) marca solo la subtab, no su tab madre', () => {
       const bar = make([T('a', ['s1', 's2'])]);
       bar.setActive(0, 1);
       expect(activeOf(bar).map((b) => b.textContent)).toEqual(['s2']);
       expect(mainsOf(bar)[0]!.getAttribute('aria-selected')).toBe('false');
+    });
+
+    it('con una subtab abierta, su tab madre (y solo ella) lleva el fondo de las subtabs', () => {
+      const bar = make([T('a', ['s1']), T('b', ['t1'])]);
+      const parents = () => mainsOf(bar).filter((b) => b.classList.contains('tab-bar__tab--parent')).map((b) => b.textContent);
+      expect(parents()).toEqual([]); // la tab a está abierta: ya lleva el resalte de activa
+      bar.setActive(1, 0);
+      expect(parents()).toEqual(['b']);
+      bar.setActive(0, 0);
+      expect(parents()).toEqual(['a']);
+      bar.setActive(1);
+      expect(parents()).toEqual([]);
     });
 
     it('un clic en una subtab llama a onSelect con la tab madre actual y el índice de la subtab', () => {
