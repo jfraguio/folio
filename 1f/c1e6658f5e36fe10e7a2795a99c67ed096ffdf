@@ -1,0 +1,19 @@
+src/styles/editor.css
+  s_7eabf98d9ca2a8::t_4f85924494db9c 197-208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "1fc1e6658f5e36fe10e7a2795a99c67ed096ffdf",
+  "prompts": {},
+  "sessions": {
+    "s_7eabf98d9ca2a8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f2855e90bfferEip0G9vBnU4FM",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
