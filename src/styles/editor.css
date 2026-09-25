@@ -194,3 +194,15 @@ html[data-zen] .cm-editor:not(.cm-cursor-placed) .cm-content {
      El texto conserva el color normal (sin rojo). */
   background: var(--heading-bg);
 }
+
+/* Hueco de 7.5px bajo cada título. Es padding y no margin (ver la separación entre párrafos del
+   modo zen), con el fondo recortado al contenido para que el hueco se vea como un margen. */
+.cm-editor .cm-line.cm-heading {
+  padding-bottom: 7.5px;
+  background-clip: content-box;
+}
+
+/* En zen se suma a la separación entre párrafos. */
+html[data-zen] .cm-editor .cm-line.cm-heading {
+  padding-bottom: calc(0.6em + 7.5px);
+}
