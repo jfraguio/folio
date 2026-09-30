@@ -1,0 +1,19 @@
+.gitignore
+  s_0405e659c1bcdd::t_2691bf260959f8 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d34528a5b43fbdf793851948a3b2318ba8bf70c4",
+  "prompts": {},
+  "sessions": {
+    "s_0405e659c1bcdd": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0cdf54c8ffenM2NC2mUHI4ogP",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
