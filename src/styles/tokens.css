@@ -1,29 +1,10 @@
+/* Solo se usa la Regular: cursiva y negrita no se emplean en ninguna parte (y el navegador las
+   sintetiza si algún día hicieran falta). Las otras tres fuentes no se declaran ni se precargan. */
 @font-face {
   font-family: 'iA Writer Quattro';
   src: url('/fonts/iAWriterQuattroS-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'iA Writer Quattro';
-  src: url('/fonts/iAWriterQuattroS-Italic.woff2') format('woff2');
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'iA Writer Quattro';
-  src: url('/fonts/iAWriterQuattroS-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'iA Writer Quattro';
-  src: url('/fonts/iAWriterQuattroS-BoldItalic.woff2') format('woff2');
-  font-weight: 700;
-  font-style: italic;
   font-display: swap;
 }
 

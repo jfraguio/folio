@@ -1,15 +1,15 @@
 import { el } from './el';
-import { stripTodoExtension } from '../fs/FileAdapter';
-import type { TodoFileRecord } from '../persistence/db';
+import { stripFolioExtension } from '../fs/FileAdapter';
+import type { FolioFileRecord } from '../persistence/db';
 
 export interface StartScreenOptions {
   degraded: boolean;
   /** Dispositivo táctil: el aviso de modo degradado no debe sugerir cambiar de navegador. */
   touch?: boolean;
-  last: TodoFileRecord | null;
+  last: FolioFileRecord | null;
   onOpen: () => void;
   onCreate: () => void;
-  onContinue: (rec: TodoFileRecord) => void;
+  onContinue: (rec: FolioFileRecord) => void;
 }
 
 export function renderStartScreen(root: HTMLElement, o: StartScreenOptions): void {
@@ -26,7 +26,7 @@ export function renderStartScreen(root: HTMLElement, o: StartScreenOptions): voi
           el(
             'button',
             { class: 'start__action start__action--secondary', on: { click: () => o.onContinue(o.last!) } },
-            `CONTINUE «${stripTodoExtension(o.last.name)}»`,
+            `CONTINUE «${stripFolioExtension(o.last.name)}»`,
           ),
       ),
       o.degraded &&

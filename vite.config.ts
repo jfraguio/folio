@@ -4,8 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 // Cuando se despliega en GitHub Pages bajo /<repo>/, se pasa BASE_PATH desde el workflow.
 const base = process.env.BASE_PATH ?? '/';
 
+// Versión de los assets del diccionario: cambia en cada build, así el runtime cache nunca sirve
+// un diccionario antiguo tras actualizar el paquete.
+const dictVersion = Date.now().toString(36);
+
 export default defineConfig({
   base,
+  define: { __DICT_VERSION__: JSON.stringify(dictVersion) },
   build: {
     target: 'es2022',
     sourcemap: false,
@@ -15,15 +20,19 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['fonts/*.woff2', 'icon.svg', 'apple-touch-icon.png'],
+      // En 'prompt' el SW nuevo espera: no limpia el precache antiguo mientras la app sigue
+      // abierta (si lo hiciera, un worker lazy con hash antiguo daría 404). La recarga la decide
+      // `main.ts` cuando no hay nada sin guardar ni paneles abiertos.
+      registerType: 'prompt',
+      // Sin `includeAssets`: los iconos y las fuentes ya entran por `globPatterns` (no se precachean dos veces).
       workbox: {
-        // El diccionario pesa ~1 MB; se cachea en runtime, no en precache.
+        // El diccionario pesa ~1 MB; se cachea en runtime, no en precache. La URL lleva `?v=`
+        // (ver `dictionaries.ts`): al cambiar sirve uno nuevo en vez de quedarse con el antiguo.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: /\.(aff|dic)$/,
+            urlPattern: /\.(aff|dic)(\?.*)?$/,
             handler: 'CacheFirst',
             options: { cacheName: 'todo-dictionaries', expiration: { maxEntries: 2 } },
           },

@@ -88,7 +88,9 @@
   border: 1px solid transparent;
   border-radius: 999px;
   color: var(--fg-dim);
-  transition: background-color var(--ease), color var(--ease);
+  transition:
+    background-color var(--ease),
+    color var(--ease);
 }
 
 @media (hover: hover) {

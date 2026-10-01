@@ -15,7 +15,7 @@ export function replacementFor(before: string, typed: string): { insert: string;
   }
   if (typed === '"') {
     const prev = before.at(-1) ?? '';
-    const opening = prev === '' || /[\s(\[{—\-\n]/.test(prev);
+    const opening = prev === '' || /[\s([{—\-\n]/.test(prev);
     return { insert: opening ? '«' : '»', deleteBack: 0 };
   }
   return null;

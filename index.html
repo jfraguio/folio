@@ -19,6 +19,8 @@
     <title>FOLIO</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Precarga de la única fuente: evita el salto de system-ui a iA Writer en la primera visita. -->
+    <link rel="preload" href="%BASE_URL%fonts/iAWriterQuattroS-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <script>
       // Aplica el tema antes del primer render para evitar parpadeo.
       (function () {

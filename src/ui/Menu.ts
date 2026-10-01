@@ -12,7 +12,6 @@ export interface MenuItem {
 export interface MenuOptions {
   items: MenuItem[];
   onSelect: (item: MenuItem) => void;
-  onClose?: () => void;
   /**
    * Teclas interceptadas con el menú abierto (antes del buscador).
    * Si devuelve true, el menú se cierra y la tecla no llega al input.
@@ -45,11 +44,34 @@ export function openOverlay(panel: HTMLElement, o: OverlayOptions = {}): { close
     { class: o.tall ? 'overlay overlay--tall' : 'overlay', attrs: { role: 'dialog', 'aria-modal': 'true' } },
     panel,
   );
+  // El foco no debe salir del panel: con Tab se cicla dentro (patrón de diálogo modal).
+  const trapFocus = (e: KeyboardEvent) => {
+    const items = [
+      ...panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ),
+    ].filter((n) => n.offsetParent !== null);
+    if (!items.length) return;
+    const first = items[0]!;
+    const last = items[items.length - 1]!;
+    const active = document.activeElement;
+    if (e.shiftKey) {
+      if (active === first || !panel.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else if (active === last || !panel.contains(active)) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       close();
+    } else if (e.key === 'Tab') {
+      trapFocus(e);
     }
   };
   const close = () => {
@@ -107,7 +129,11 @@ export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
           class: ['panel__item', item.info && 'panel__item--info', i === active && 'panel__item--active']
             .filter(Boolean)
             .join(' '),
-          attrs: { role: 'option', 'aria-selected': String(i === active), ...(item.info ? { 'aria-disabled': 'true' } : {}) },
+          attrs: {
+            role: 'option',
+            'aria-selected': String(i === active),
+            ...(item.info ? { 'aria-disabled': 'true' } : {}),
+          },
           on: {
             click: () => {
               if (!item.info) select(item);
@@ -155,7 +181,7 @@ export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
     }
   });
 
-  const handle = openOverlay(panel, { onClose: o.onClose, restoreFocus });
+  const handle = openOverlay(panel, { restoreFocus });
   render();
   list.focus();
 }

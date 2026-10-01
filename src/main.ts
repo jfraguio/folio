@@ -4,15 +4,17 @@ import './styles/editor.css';
 import './styles/overlays.css';
 import './styles/tabs.css';
 
-import { createAdapter, hasFsAccess, applyTouchFlag, isTouch } from './fs/detect';
-import { DEFAULT_TODO_CONTENT, type TodoFile } from './fs/FileAdapter';
+import { createAdapter, hasFsAccess } from './fs/detect';
+import { applyTouchFlag, isTouch } from './ui/env';
+import { DEFAULT_FOLIO_CONTENT, type FolioFile } from './fs/FileAdapter';
 import { FsAccessAdapter } from './fs/FsAccessAdapter';
 import { initPrefsEffects } from './persistence/prefs';
 import { lastFile, forgetFile } from './persistence/files';
 import { renderStartScreen } from './ui/StartScreen';
 import { notice } from './ui/Notice';
-import { startSession, type Session } from './app/session';
+import type { Session } from './app/session';
 import { el } from './ui/el';
+import { registerSW } from 'virtual:pwa-register';
 
 const root = document.getElementById('app')!;
 const adapter = createAdapter();
@@ -25,6 +27,38 @@ document.body.appendChild(el('h1', { class: 'brand' }, 'FOLIO'));
 let session: Session | null = null;
 /** Se incrementa cada vez que se empieza a abrir un archivo; sirve para descartar pantallas de inicio tardías. */
 let generation = 0;
+
+// Actualización del service worker. Con `prompt`, la versión nueva queda esperando; se recarga sola
+// en cuanto no hay cambios sin guardar ni ningún panel abierto (evita perder trabajo y evita que se
+// limpie el precache antiguo con la app abierta).
+let applyUpdate: (() => void) | null = null;
+let updateTimer: ReturnType<typeof setInterval> | null = null;
+let updateSW: (reloadPage?: boolean) => Promise<void> = async () => {};
+
+function tryApplyUpdate(): void {
+  if (!applyUpdate) return;
+  if (document.visibilityState !== 'visible') return;
+  if (document.querySelector('.overlay')) return;
+  if (session?.isDirty()) return;
+  const run = applyUpdate;
+  applyUpdate = null;
+  if (updateTimer) {
+    clearInterval(updateTimer);
+    updateTimer = null;
+  }
+  run();
+}
+
+updateSW = registerSW({
+  onNeedRefresh() {
+    applyUpdate = () => void updateSW(true);
+    if (!updateTimer) updateTimer = setInterval(tryApplyUpdate, 2000);
+    tryApplyUpdate();
+  },
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') tryApplyUpdate();
+});
 
 async function showStart(): Promise<void> {
   const gen = generation;
@@ -41,7 +75,7 @@ async function showStart(): Promise<void> {
       if (f) await enter(f);
     },
     onCreate: async () => {
-      const f = await adapter.create(DEFAULT_TODO_CONTENT).catch(fail);
+      const f = await adapter.create(DEFAULT_FOLIO_CONTENT).catch(fail);
       if (f) await enter(f);
     },
     onContinue: async (rec) => {
@@ -63,9 +97,12 @@ async function showStart(): Promise<void> {
       if (available) await enter({ name: rec.handle.name, handle: rec.handle });
     },
   });
+  // El editor (CodeMirror, ~330 KB) se descarga y evalúa mientras el usuario mira la pantalla de
+  // inicio, no al pulsar «Abrir»: la primera pantalla sale antes y el editor está listo igual.
+  void import('./app/session');
 }
 
-async function enter(file: TodoFile): Promise<void> {
+async function enter(file: FolioFile): Promise<void> {
   generation++;
   try {
     // Solo una sesión a la vez: si ya hay un archivo abierto (p. ej. el sistema operativo nos
@@ -73,6 +110,8 @@ async function enter(file: TodoFile): Promise<void> {
     const previous = session;
     session = null;
     await previous?.close();
+    tryApplyUpdate();
+    const { startSession } = await import('./app/session');
     session = await startSession({ root, adapter, file, onExit: () => void showStart() });
   } catch (e) {
     console.error(e);
@@ -88,8 +127,9 @@ function fail(e: unknown): null {
 }
 
 /** Archivos entregados por el sistema operativo (PWA instalada con file_handlers). */
-const lq = (window as unknown as { launchQueue?: { setConsumer: (cb: (p: { files: FileSystemHandle[] }) => void) => void } })
-  .launchQueue;
+const lq = (
+  window as unknown as { launchQueue?: { setConsumer: (cb: (p: { files: FileSystemHandle[] }) => void) => void } }
+).launchQueue;
 if (lq) {
   lq.setConsumer(async (params) => {
     const handle = params.files?.[0];

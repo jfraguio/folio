@@ -18,6 +18,9 @@ export const SHORTCUTS: Record<string, string> = {
 };
 
 export function comboOf(e: KeyboardEvent): string {
+  // AltGr (teclado español en Windows: @, #, |, ~) llega como Ctrl+Alt. No es un atajo: hay que
+  // dejar pasar el carácter, o AltGr+2/3/1/4 se leería como «subtab 2/3/1/4» y lo cancelaría.
+  if (e.getModifierState?.('AltGraph')) return '';
   const parts: string[] = [];
   if (IS_MAC ? e.metaKey : e.ctrlKey) parts.push('Mod');
   if (e.shiftKey) parts.push('Shift');
@@ -26,6 +29,9 @@ export function comboOf(e: KeyboardEvent): string {
   // Shift (o Alt) pulsado, `e.key` es el símbolo de la tecla («!», «"», «·»…), que además cambia
   // con la distribución del teclado.
   const digit = /^Digit(\d)$/.exec(e.code ?? '')?.[1];
+  // Si el navegador no anuncia AltGraph, queda el rastro de que la tecla física no coincide con el
+  // carácter generado (AltGr+2 produce «@»): tampoco es el atajo de subtab.
+  if (!IS_MAC && e.ctrlKey && e.altKey && digit && e.key.length === 1 && e.key !== digit) return '';
   let key = digit ?? e.key;
   if (!digit && key.length === 1) key = key.toLowerCase();
   parts.push(key);

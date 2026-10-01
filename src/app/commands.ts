@@ -1,8 +1,6 @@
 export interface Command {
   id: string;
   label: string | (() => string);
-  /** Atajo mostrado en el menú (p. ej. "⌘K"). */
-  shortcut?: string;
   keywords?: string;
   /** Si devuelve false, el comando no se muestra en el menú. */
   when?: () => boolean;

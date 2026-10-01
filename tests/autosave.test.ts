@@ -24,7 +24,13 @@ describe('Autosave', () => {
     let text = 'a';
     const { io, writes } = makeIO();
     const states: SaveState[] = [];
-    const a = new Autosave({ getText: () => text, io, initialMtime: 1000, debounceMs: 100, onState: (s) => states.push(s) });
+    const a = new Autosave({
+      getText: () => text,
+      io,
+      initialMtime: 1000,
+      debounceMs: 100,
+      onState: (s) => states.push(s),
+    });
 
     text = 'ab';
     a.markDirty();
@@ -66,13 +72,12 @@ describe('Autosave', () => {
   it('si el disco es posterior, aborta la escritura y avisa para recargar; tras accept() sigue guardando', async () => {
     const { io, writes, setDisk } = makeIO();
     let text = 'local';
-    let a!: Autosave;
     const onNewerOnDisk = vi.fn(async (m: number) => {
       // Quien nos usa relee el disco, lo vuelca en el editor y lo acepta como vigente.
       text = 'del disco';
       a.accept(m, text);
     });
-    a = new Autosave({ getText: () => text, io, initialMtime: 1000, debounceMs: 10, onNewerOnDisk });
+    const a = new Autosave({ getText: () => text, io, initialMtime: 1000, debounceMs: 10, onNewerOnDisk });
 
     setDisk(5000); // alguien guardó después que nosotros
     a.markDirty();
@@ -89,6 +94,25 @@ describe('Autosave', () => {
     await vi.advanceTimersByTimeAsync(20);
     expect(writes).toEqual(['del disco + edición']);
     expect(a.state).toBe('saved');
+  });
+
+  it('si el mtime es posterior pero el contenido no cambió, no descarta lo local: sigue y escribe', async () => {
+    const { io, writes, setDisk } = makeIO();
+    (io as unknown as { read?: unknown }).read = vi.fn(async () => ({ text: 'base', mtime: 5000 }));
+    const onNewerOnDisk = vi.fn();
+    let text = 'base';
+    const a = new Autosave({ getText: () => text, io, initialMtime: 1000, debounceMs: 10, onNewerOnDisk });
+    a.accept(1000, 'base');
+
+    setDisk(5000); // iCloud reescribió la fecha sin tocar el texto
+    text = 'base + edición';
+    a.markDirty();
+    await vi.advanceTimersByTimeAsync(20);
+
+    expect(onNewerOnDisk).not.toHaveBeenCalled();
+    expect(writes).toEqual(['base + edición']);
+    expect(a.state).toBe('saved');
+    expect(a.lastKnownMtime).toBe(5001);
   });
 
   it('si onNewerOnDisk no acepta nada, vuelve a dirty en vez de quedarse colgado en saving', async () => {

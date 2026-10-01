@@ -2,6 +2,7 @@ import { Compartment, RangeSetBuilder, StateEffect, StateField } from '@codemirr
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import type { SpellService } from '../spell/SpellService';
 import type { PersonalDictionary } from '../persistence/dictionary';
+import { URL_RE, WORD_RE } from '../text/conventions';
 
 const misspelled = Decoration.mark({ class: 'cm-misspelled' });
 const setMarks = StateEffect.define<DecorationSet>();
@@ -16,11 +17,7 @@ const marksField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
-/** Palabras candidatas al corrector: letras, apóstrofos y guiones internos. */
-export const SPELL_WORD_RE = /[\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*/gu;
-
-/** URLs: el corrector no debe señalar sus fragmentos como palabras erróneas. */
-const URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"'()]+/giu;
+// Palabra y URL se toman de las convenciones comunes (text/conventions.ts).
 
 export interface SpellDeps {
   service: SpellService;
@@ -31,8 +28,8 @@ export interface SpellDeps {
 /** Palabra bajo el cursor (o null). */
 export function wordAt(view: EditorView, pos: number): { from: number; to: number; word: string } | null {
   const line = view.state.doc.lineAt(pos);
-  SPELL_WORD_RE.lastIndex = 0;
-  for (const m of line.text.matchAll(SPELL_WORD_RE)) {
+  WORD_RE.lastIndex = 0;
+  for (const m of line.text.matchAll(WORD_RE)) {
     const from = line.from + m.index!;
     const to = from + m[0].length;
     if (pos >= from && pos <= to) return { from, to, word: m[0] };
@@ -81,7 +78,16 @@ export function spellcheck(deps: SpellDeps) {
         this.timer = setTimeout(() => void this.run(), ms);
       }
 
+      /** Envuelve el escaneo: un fallo del corrector nunca debe romper el editor. */
       private async run() {
+        try {
+          await this.scan();
+        } catch {
+          /* se reintentará en la próxima edición */
+        }
+      }
+
+      private async scan() {
         if (this.cancelled || !deps.service.ready) return;
         const view = this.view;
         const state = view.state;
@@ -98,9 +104,10 @@ export function spellcheck(deps: SpellDeps) {
           // Zonas que no se corrigen: URLs.
           const skip: { from: number; to: number }[] = [];
           URL_RE.lastIndex = 0;
-          for (const m of text.matchAll(URL_RE)) skip.push({ from: from + m.index!, to: from + m.index! + m[0].length });
-          SPELL_WORD_RE.lastIndex = 0;
-          for (const m of text.matchAll(SPELL_WORD_RE)) {
+          for (const m of text.matchAll(URL_RE))
+            skip.push({ from: from + m.index!, to: from + m.index! + m[0].length });
+          WORD_RE.lastIndex = 0;
+          for (const m of text.matchAll(WORD_RE)) {
             const wf = from + m.index!;
             const wt = wf + m[0].length;
             if (cursorWord && wf === cursorWord.from) continue;

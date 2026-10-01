@@ -1,5 +1,6 @@
 import { RangeSetBuilder } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+import { URL_RE } from '../text/conventions';
 
 /**
  * Enlaces clicables en el editor. El documento sigue siendo texto plano (no se toca);
@@ -10,9 +11,6 @@ import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate
  * foco (se está leyendo). Si se estaba escribiendo, el toque coloca el cursor como siempre;
  * para editar una URL basta con tocar antes en cualquier otro punto del texto.
  */
-
-/** URL web: http(s)://... o www...., hasta un espacio o el final de la línea. */
-const URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"'()]+/giu;
 
 const linkMark = Decoration.mark({ class: 'cm-link' });
 

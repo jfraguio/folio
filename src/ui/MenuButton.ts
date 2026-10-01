@@ -1,6 +1,6 @@
 import { el } from './el';
 import { prettyShortcut } from '../app/shortcuts';
-import { isTouch } from '../fs/detect';
+import { isTouch } from '../ui/env';
 
 /** Botón sutil, abajo a la derecha, que abre el menú. */
 export function createMenuButton(onClick: () => void): HTMLButtonElement {

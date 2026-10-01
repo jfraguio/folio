@@ -1,7 +1,7 @@
 import { getDB, type BackupRecord } from './db';
-import { allTexts, splitDocument } from './todoBlocks';
+import { allTexts, splitDocument } from './folioFormat';
 import { countWords } from '../text/words';
-import { stripTodoExtension, TODO_EXTENSION } from '../fs/FileAdapter';
+import { stripFolioExtension, FOLIO_EXTENSION } from '../fs/FileAdapter';
 
 /** Versiones que se conservan por archivo (las más recientes). */
 export const HISTORY_KEEP = 50;
@@ -46,14 +46,23 @@ export async function saveVersion(todoId: string, text: string, now = Date.now()
 
   const db = await getDB();
   const tx = db.transaction('backups', 'readwrite');
-  const existing = await tx.store.index('todoId').getAll(todoId);
+  // Solo las claves `[todoId, ts]`: no hace falta cargar los textos completos para la retención.
+  const keys = (await tx.store.index('todoId').getAllKeys(IDBKeyRange.only(todoId))) as [string, number][];
+  const tsList = keys.map(([, k]) => k);
   // La clave incluye `ts`: dos guardados en el mismo milisegundo (solo en tests) no deben pisarse.
   let ts = now;
-  while (existing.some((b) => b.ts === ts)) ts += 1;
-  const record: BackupRecord = { todoId, ts, text, hash, words: countWords(allTexts(splitDocument(text).tabs).join('\n')) };
+  while (tsList.includes(ts)) ts += 1;
+  const record: BackupRecord = {
+    todoId,
+    ts,
+    text,
+    hash,
+    words: countWords(allTexts(splitDocument(text).tabs).join('\n')),
+  };
   await tx.store.put(record);
-  const sorted = [...existing, record].sort((a, b) => b.ts - a.ts);
-  for (const old of sorted.slice(HISTORY_KEEP)) await tx.store.delete([todoId, old.ts]);
+  for (const oldTs of [...tsList, ts].sort((a, b) => b - a).slice(HISTORY_KEEP)) {
+    await tx.store.delete([todoId, oldTs]);
+  }
   await tx.done;
   return record;
 }
@@ -75,6 +84,29 @@ export async function listVersions(todoId: string): Promise<BackupRecord[]> {
   return all.sort((a, b) => b.ts - a.ts);
 }
 
+/** Metadatos de una versión (todo menos el texto), para listar el historial sin cargar los textos. */
+export type VersionMeta = Omit<BackupRecord, 'text'>;
+
+/** Versiones de un archivo sin sus textos, de la más reciente a la más antigua. */
+export async function listVersionsMeta(todoId: string): Promise<VersionMeta[]> {
+  const db = await getDB();
+  const tx = db.transaction('backups');
+  const out: VersionMeta[] = [];
+  let cursor = await tx.store.index('todoId').openCursor(IDBKeyRange.only(todoId), 'prev');
+  while (cursor) {
+    const { text: _text, ...meta } = cursor.value;
+    out.push(meta);
+    cursor = await cursor.continue();
+  }
+  return out;
+}
+
+/** Una versión completa (con su texto), o `undefined` si ya no está. */
+export async function getVersion(todoId: string, ts: number): Promise<BackupRecord | undefined> {
+  const db = await getDB();
+  return db.get('backups', [todoId, ts]);
+}
+
 /** Solo la versión más reciente, sin cargar las demás: el índice `todoId` ordena por [todoId, ts]. */
 async function latestVersion(todoId: string): Promise<BackupRecord | undefined> {
   const db = await getDB();
@@ -84,11 +116,11 @@ async function latestVersion(todoId: string): Promise<BackupRecord | undefined> 
 
 /** Nombre de archivo para descargar una versión: `<folio> — 2026-09-11 14.30.txt`. */
 export function versionFileName(fileName: string, version: Pick<BackupRecord, 'ts'>): string {
-  const base = stripTodoExtension(fileName || 'folio');
+  const base = stripFolioExtension(fileName || 'folio');
   const d = new Date(version.ts);
   const pad = (n: number) => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}`;
-  return `${base} — ${stamp}${TODO_EXTENSION}`;
+  return `${base} — ${stamp}${FOLIO_EXTENSION}`;
 }
 
 /**

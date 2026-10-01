@@ -7,6 +7,11 @@ export interface AutosaveIO {
   mtime(): Promise<number>;
   /** Escribe y devuelve el nuevo mtime. */
   write(text: string): Promise<number>;
+  /**
+   * Contenido y mtime actuales del disco. Solo se usa cuando el mtime es posterior al conocido,
+   * para distinguir un cambio real de un simple retoque de fecha (iCloud, sincronizadores).
+   */
+  read?(): Promise<{ text: string; mtime: number }>;
 }
 
 export interface AutosaveOptions {
@@ -80,6 +85,12 @@ export class Autosave {
       this.pendingAgain = true;
       return;
     }
+    // En error no se reintenta en cada tecla (sería un aviso y una escritura por pulsación): se
+    // anota el cambio y se espera a un reintento manual o al backoff de los errores desconocidos.
+    if (this.state === 'error') {
+      this.pendingAgain = true;
+      return;
+    }
     this.setState('dirty');
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => void this.flush(), this.debounceMs);
@@ -117,6 +128,14 @@ export class Autosave {
     this.setState('saved');
   }
 
+  /**
+   * ¿El texto coincide con la última versión conocida en disco? Sirve para no recargar cuando el
+   * `mtime` cambia sin que el contenido cambie (ver `sameAsDisk` y el sondeo de la sesión).
+   */
+  isSameAsSaved(text: string): boolean {
+    return this.lastSavedText !== null && text === this.lastSavedText;
+  }
+
   /** Reintento manual (por ejemplo tras recuperar permisos con gesto de usuario). */
   async retry(): Promise<void> {
     this.clearTimer('retry');
@@ -141,13 +160,20 @@ export class Autosave {
     try {
       const diskMtime = await this.opts.io.mtime();
       if (diskMtime > this.lastKnownMtime) {
-        // El disco es más nuevo: se descarta lo local (como mucho, unos segundos de trabajo) y se
-        // recarga. `onNewerOnDisk` debe terminar con `accept()`; si no lo hace, se vuelve a `dirty`
-        // para que el siguiente intento (o el sondeo de cambios externos) lo resuelva.
-        this.pendingAgain = false;
-        await this.opts.onNewerOnDisk?.(diskMtime);
-        if (this.state === 'saving') this.setState('dirty');
-        return;
+        if (await this.sameAsDisk()) {
+          // El mtime cambió pero el contenido es el mismo que ya teníamos (iCloud y otros
+          // sincronizadores reescriben la fecha sin tocar el texto): se acepta en silencio y se
+          // sigue con la escritura, en vez de descartar los cambios locales.
+          this.lastKnownMtime = diskMtime;
+        } else {
+          // El disco es más nuevo de verdad: se descarta lo local (como mucho, unos segundos de
+          // trabajo) y se recarga. `onNewerOnDisk` debe terminar con `accept()`; si no lo hace, se
+          // vuelve a `dirty` para que el siguiente intento (o el sondeo externo) lo resuelva.
+          this.pendingAgain = false;
+          await this.opts.onNewerOnDisk?.(diskMtime);
+          if (this.state === 'saving') this.setState('dirty');
+          return;
+        }
       }
       const mtime = await this.opts.io.write(text);
       this.lastKnownMtime = mtime;
@@ -167,6 +193,19 @@ export class Autosave {
     if (this.pendingAgain) {
       this.pendingAgain = false;
       this.markDirty();
+    }
+  }
+
+  /** El disco tiene el mismo contenido que la última versión guardada (aunque el mtime sea otro). */
+  private async sameAsDisk(): Promise<boolean> {
+    const read = this.opts.io.read;
+    if (!read || this.lastSavedText === null) return false;
+    try {
+      const disk = await read();
+      return disk.text === this.lastSavedText;
+    } catch {
+      // Si no se puede leer (p. ej. iCloud a medio sincronizar), se trata como cambio real.
+      return false;
     }
   }
 

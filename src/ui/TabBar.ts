@@ -1,9 +1,10 @@
 import { el } from './el';
-import { TAB_COUNT, type Tab } from '../persistence/todoBlocks';
+import { TAB_COUNT, type Tab } from '../persistence/folioFormat';
+import { WORD_RE } from '../text/conventions';
 
 /** Título de la tab: la primera palabra de su contenido, o su número si está vacía. */
 export function tabTitle(text: string, index: number): string {
-  const word = text.match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/u)?.[0];
+  const word = text.match(WORD_RE)?.[0];
   return word ? (word.length > 16 ? word.slice(0, 15) + '…' : word) : String(index + 1);
 }
 
@@ -58,6 +59,19 @@ export class TabBar {
     this.scrollActiveIntoView();
   }
 
+  /**
+   * Repinta solo el botón activo. Al escribir, el título del resto de tabs no cambia, así que no
+   * hace falta releer ni repintar toda la barra en cada pulsación.
+   */
+  refreshActive(text: string): void {
+    const isSub = this.activeSub >= 0;
+    const btn = isSub ? this.subButtons[this.activeSub] : this.buttons[this.activeTab];
+    if (!btn) return;
+    const index = isSub ? this.activeSub : this.activeTab;
+    const name = isSub ? `Subpestaña ${index + 1} de la tab ${this.activeTab + 1}` : `Tab ${index + 1}`;
+    this.paint(btn, text, index, true, name);
+  }
+
   /** Relee los contenidos y redibuja (tras escribir, cambiar de tab, crear o quitar una, o cargar). */
   render(): void {
     const count = Math.max(1, Math.min(TAB_COUNT, this.o.tabs.length));
@@ -75,7 +89,13 @@ export class TabBar {
     this.fit(this.subButtons, subCount, (k) => this.o.onSelect(this.activeTab, k), 'tab-bar__tab tab-bar__tab--sub');
     this.divider.hidden = subCount === 0;
     for (let k = 0; k < subCount; k++) {
-      this.paint(this.subButtons[k]!, subs[k] ?? '', k, k === this.activeSub, `Subpestaña ${k + 1} de la tab ${this.activeTab + 1}`);
+      this.paint(
+        this.subButtons[k]!,
+        subs[k] ?? '',
+        k,
+        k === this.activeSub,
+        `Subpestaña ${k + 1} de la tab ${this.activeTab + 1}`,
+      );
     }
   }
 

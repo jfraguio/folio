@@ -29,6 +29,6 @@ describe('replacementFor (sustituciones del modo zen)', () => {
   it('cualquier otro carácter pasa sin tocar', () => {
     expect(replacementFor('ab', 'c')).toBeNull();
     expect(replacementFor('..', '.')).toBeNull(); // la elipsis de Folio no forma parte del modo zen
-    expect(replacementFor("ab", "'")).toBeNull();
+    expect(replacementFor('ab', "'")).toBeNull();
   });
 });

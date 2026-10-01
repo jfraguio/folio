@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applyTouchFlag, isTouch } from '../src/fs/detect';
+import { applyTouchFlag, isTouch } from '../src/ui/env';
 
 function mockPointer(coarse: boolean) {
   vi.stubGlobal(

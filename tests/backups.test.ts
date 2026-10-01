@@ -3,7 +3,9 @@ import {
   HISTORY_INTERVAL_MS,
   HISTORY_KEEP,
   VersionHistory,
+  getVersion,
   listVersions,
+  listVersionsMeta,
   saveVersion,
   saveVersionIfDue,
   sha256,
@@ -92,6 +94,19 @@ describe('historial de versiones', () => {
     expect(v?.words).toBe(3);
   });
 
+  it('listVersionsMeta no carga los textos y getVersion sí los devuelve', async () => {
+    await saveVersion('id1', 'primera', T0);
+    await saveVersion('id1', 'segunda', T0 + 1000);
+
+    const meta = await listVersionsMeta('id1');
+    expect(meta.map((m) => m.ts)).toEqual([T0 + 1000, T0]); // más reciente primero
+    expect(meta.every((m) => !('text' in m))).toBe(true);
+
+    const full = await getVersion('id1', T0);
+    expect(full?.text).toBe('primera');
+    expect(await getVersion('id1', 0)).toBeUndefined();
+  });
+
   it('versionFileName sugiere <nombre> — <fecha> <hora>.txt (también para un .md antiguo)', () => {
     const ts = new Date('2026-09-11T14:05:00').getTime();
     expect(versionFileName('to-do.txt', { ts })).toBe('to-do — 2026-09-11 14.05.txt');
@@ -157,7 +172,13 @@ describe('historial de versiones', () => {
       req.onsuccess = () => {
         const db = req.result;
         const tx = db.transaction('backups', 'readwrite');
-        tx.objectStore('backups').put({ todoId: 'id1', day: '2026-09-10', ts: T0 - 24 * HOUR, text: 'antigua', words: 1 });
+        tx.objectStore('backups').put({
+          todoId: 'id1',
+          day: '2026-09-10',
+          ts: T0 - 24 * HOUR,
+          text: 'antigua',
+          words: 1,
+        });
         tx.oncomplete = () => {
           db.close();
           resolve();

@@ -1,5 +1,6 @@
-import type { FileAdapter, TodoFile } from './FileAdapter';
-import { DEFAULT_TODO_NAME, normalizeText, TODO_MIME, TODO_OPEN_EXTENSIONS } from './FileAdapter';
+import type { FileAdapter, FolioFile } from './FileAdapter';
+import { DEFAULT_FOLIO_NAME, normalizeText, FOLIO_MIME, FOLIO_OPEN_EXTENSIONS } from './FileAdapter';
+import { download } from './download';
 
 /**
  * Adaptador para navegadores sin File System Access API.
@@ -8,14 +9,14 @@ import { DEFAULT_TODO_NAME, normalizeText, TODO_MIME, TODO_OPEN_EXTENSIONS } fro
 export class FallbackAdapter implements FileAdapter {
   readonly capabilities = { directWrite: false, persistentHandle: false };
 
-  open(): Promise<TodoFile | null> {
+  open(): Promise<FolioFile | null> {
     return new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = [...TODO_OPEN_EXTENSIONS, TODO_MIME, 'text/markdown'].join(',');
+      input.accept = [...FOLIO_OPEN_EXTENSIONS, FOLIO_MIME, 'text/markdown'].join(',');
       input.style.display = 'none';
       document.body.appendChild(input);
-      const done = (f: TodoFile | null) => {
+      const done = (f: FolioFile | null) => {
         input.remove();
         resolve(f);
       };
@@ -28,15 +29,15 @@ export class FallbackAdapter implements FileAdapter {
     });
   }
 
-  async create(defaultContent: string): Promise<TodoFile | null> {
-    const file = new File([defaultContent], DEFAULT_TODO_NAME, {
-      type: TODO_MIME,
+  async create(defaultContent: string): Promise<FolioFile | null> {
+    const file = new File([defaultContent], DEFAULT_FOLIO_NAME, {
+      type: FOLIO_MIME,
       lastModified: Date.now(),
     });
     return { name: file.name, file };
   }
 
-  async read(f: TodoFile): Promise<{ text: string; mtime: number }> {
+  async read(f: FolioFile): Promise<{ text: string; mtime: number }> {
     const file = f.file!;
     return { text: normalizeText(await file.text()), mtime: file.lastModified };
   }
@@ -45,50 +46,9 @@ export class FallbackAdapter implements FileAdapter {
     throw new DOMException('Direct write not supported', 'NotSupportedError');
   }
 
-  async saveAs(text: string, suggestedName: string): Promise<TodoFile | null> {
-    download(text, suggestedName, TODO_MIME);
-    const file = new File([text], suggestedName, { type: TODO_MIME, lastModified: Date.now() });
+  async saveAs(text: string, suggestedName: string): Promise<FolioFile | null> {
+    download(text, suggestedName, FOLIO_MIME);
+    const file = new File([text], suggestedName, { type: FOLIO_MIME, lastModified: Date.now() });
     return { name: suggestedName, file };
-  }
-}
-
-export function download(text: string, name: string, mime: string): void {
-  const blob = new Blob([text], { type: `${mime};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-/**
- * Guarda un texto en un archivo nuevo elegido por el usuario (`showSaveFilePicker`) o, si el
- * navegador no lo permite, lo descarga. Devuelve el nombre final, o `null` si el usuario canceló.
- * Nunca toca el archivo abierto.
- */
-export async function saveToNewFile(
-  text: string,
-  suggestedName: string,
-  type: { description: string; mime: `${string}/${string}`; extension: `.${string}` },
-): Promise<string | null> {
-  if (!('showSaveFilePicker' in window)) {
-    download(text, suggestedName, type.mime);
-    return suggestedName;
-  }
-  try {
-    const h = await window.showSaveFilePicker({
-      suggestedName,
-      types: [{ description: type.description, accept: { [type.mime]: [type.extension] } }],
-    });
-    const w = await h.createWritable();
-    await w.write(text);
-    await w.close();
-    return h.name;
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return null;
-    throw e;
   }
 }

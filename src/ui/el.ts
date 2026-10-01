@@ -39,6 +39,22 @@ export function clear(node: Node): void {
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
+// Los formateadores de Intl son caros de crear; se crean una vez y se reutilizan.
+const SHORT_DATE_TIME = new Intl.DateTimeFormat('es-ES', {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+const FULL_DATE_TIME = new Intl.DateTimeFormat('es-ES', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
 export function relativeTime(ts: number, now = Date.now()): string {
   const diff = Math.max(0, now - ts);
   const s = Math.round(diff / 1000);
@@ -47,18 +63,10 @@ export function relativeTime(ts: number, now = Date.now()): string {
   if (m < 60) return `hace ${m} min`;
   const h = Math.round(m / 60);
   if (h < 24) return `hace ${h} h`;
-  const d = new Date(ts);
-  return d.toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return SHORT_DATE_TIME.format(new Date(ts));
 }
 
 /** Fecha y hora absolutas, p. ej. «7 sept 2026, 13:42:05». */
 export function formatDateTime(ts: number): string {
-  return new Date(ts).toLocaleString('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  return FULL_DATE_TIME.format(new Date(ts));
 }

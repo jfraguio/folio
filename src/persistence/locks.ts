@@ -5,9 +5,11 @@
  * El bloqueo es una salvaguarda, no una barrera: si la otra pestaña no responde
  * (congelada, descartada, colgada) el usuario siempre puede abrir el archivo aquí.
  */
+import { LEGACY } from './legacyIds';
+
 export type TakeoverResult = 'granted' | 'refused' | 'no-response';
 
-export interface TodoLock {
+export interface FileLock {
   acquired: boolean;
   release(): void;
   /**
@@ -21,8 +23,8 @@ export interface TodoLock {
 
 const TAKEOVER_TIMEOUT_MS = 3000;
 
-export async function acquireTodoLock(todoId: string): Promise<TodoLock> {
-  const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('to-do') : null;
+export async function acquireFileLock(lockKey: string): Promise<FileLock> {
+  const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(LEGACY.channel) : null;
   let release: () => void = () => {};
   let acquired = false;
   let takeoverHandler: (() => boolean | Promise<boolean>) | null = null;
@@ -30,7 +32,7 @@ export async function acquireTodoLock(todoId: string): Promise<TodoLock> {
   const tryAcquire = (): Promise<boolean> => {
     if (!navigator.locks) return Promise.resolve(true);
     return new Promise<boolean>((resolve) => {
-      void navigator.locks.request(`to-do:${todoId}`, { ifAvailable: true }, (lock) => {
+      void navigator.locks.request(`${LEGACY.lockPrefix}${lockKey}`, { ifAvailable: true }, (lock) => {
         if (!lock) {
           resolve(false);
           return Promise.resolve();
@@ -47,7 +49,7 @@ export async function acquireTodoLock(todoId: string): Promise<TodoLock> {
 
   channel?.addEventListener('message', async (ev: MessageEvent) => {
     const msg = ev.data as { type: string; todoId: string };
-    if (msg?.todoId !== todoId) return;
+    if (msg?.todoId !== lockKey) return;
     if (msg.type === 'takeover-request' && acquired && takeoverHandler) {
       const ok = await takeoverHandler();
       if (ok) {
@@ -56,8 +58,8 @@ export async function acquireTodoLock(todoId: string): Promise<TodoLock> {
       }
       // El handler suele cerrar la sesión (y con ella este canal), así que la respuesta
       // sale por un canal propio; si no, la otra pestaña nunca se enteraría de que hemos cedido.
-      const out = new BroadcastChannel('to-do');
-      out.postMessage({ type: 'takeover-response', todoId, ok });
+      const out = new BroadcastChannel(LEGACY.channel);
+      out.postMessage({ type: 'takeover-response', todoId: lockKey, ok });
       out.close();
     }
   });
@@ -81,14 +83,14 @@ export async function acquireTodoLock(todoId: string): Promise<TodoLock> {
         }, TAKEOVER_TIMEOUT_MS);
         const onMsg = (ev: MessageEvent) => {
           const msg = ev.data as { type: string; todoId: string; ok: boolean };
-          if (msg?.type === 'takeover-response' && msg.todoId === todoId) {
+          if (msg?.type === 'takeover-response' && msg.todoId === lockKey) {
             clearTimeout(timer);
             channel.removeEventListener('message', onMsg);
             resolve(msg.ok);
           }
         };
         channel.addEventListener('message', onMsg);
-        channel.postMessage({ type: 'takeover-request', todoId });
+        channel.postMessage({ type: 'takeover-request', todoId: lockKey });
       });
       if (answer === null) return 'no-response';
       if (!answer) return 'refused';

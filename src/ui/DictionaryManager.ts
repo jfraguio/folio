@@ -2,7 +2,11 @@ import { el, clear } from './el';
 import { openOverlay } from './Menu';
 import type { PersonalDictionary } from '../persistence/dictionary';
 
-export function openDictionaryManager(dict: PersonalDictionary, onChange: () => void, restoreFocus?: () => void): void {
+export function openDictionaryManager(
+  dict: PersonalDictionary,
+  onRemove: (word: string) => void,
+  restoreFocus?: () => void,
+): void {
   const words = el('div', { class: 'dict' });
   const render = () => {
     clear(words);
@@ -21,7 +25,7 @@ export function openDictionaryManager(dict: PersonalDictionary, onChange: () => 
             on: {
               click: () => {
                 dict.remove(w);
-                onChange();
+                onRemove(w);
                 render();
               },
             },
@@ -34,9 +38,13 @@ export function openDictionaryManager(dict: PersonalDictionary, onChange: () => 
   const panel = el(
     'div',
     { class: 'panel panel--tall' },
-    el('div', { class: 'panel__footer', style: { borderTop: 'none', borderBottom: '1px solid var(--panel-border)' } }, 'Diccionario personal · pulsa una palabra para quitarla'),
+    el('div', { class: 'panel__header' }, 'Diccionario personal · pulsa una palabra para quitarla'),
     words,
-    el('div', { class: 'panel__actions' }, el('button', { class: 'btn btn--quiet', on: { click: () => handle.close() } }, 'Cerrar')),
+    el(
+      'div',
+      { class: 'panel__actions' },
+      el('button', { class: 'btn btn--quiet', on: { click: () => handle.close() } }, 'Cerrar'),
+    ),
   );
   const handle = openOverlay(panel, { restoreFocus, tall: true });
   render();

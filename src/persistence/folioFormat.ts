@@ -1,3 +1,5 @@
+import { LEGACY } from './legacyIds';
+
 /**
  * Formato del archivo de folio (`.txt`; los `.md` anteriores tienen el mismo contenido).
  * Los marcadores conservan el prefijo `todo:` del nombre anterior de la app, para que los
@@ -35,16 +37,37 @@
  * El bloque del diccionario: marcador, líneas de descripción, una línea vacía y el contenido.
  * Si no está al final (o mal cerrado), se trata como texto normal y no se pierde nada.
  * Sin palabras no se escribe el bloque. Un "-->" dentro del diccionario se escapa como "--\>".
+ *
+ * El contenido del usuario puede incluir líneas que parecen estructura (`[todo:tab 2]` o la
+ * apertura del bloque del diccionario): al escribir se escapan con una barra invertida delante y
+ * al leer se quita, para que el dar la vuelta al archivo no reordene el texto.
  */
 
 /** Número máximo de tabs (espacios de texto) de la aplicación, y de subtabs por tab. */
 export const TAB_COUNT = 10;
 
 /** Marcador de tab (`[todo:tab N]`) o de subtab (`[todo:tab N.M]`): una línea entera. */
-const TAB_RE = /^\[todo:tab (\d+)(?:\.(\d+))?\]$/gm;
+const TAB_RE = new RegExp(`^\\[${LEGACY.tabMarker} (\\d+)(?:\\.(\\d+))?\\]$`, 'gm');
+
+/** Línea que, sin escapar, se leería como estructura (marcador de tab/subtab o bloque de diccionario). */
+const STRUCTURE = `\\[${LEGACY.tabMarker} \\d+(?:\\.\\d+)?\\]$|<!-- ${LEGACY.dictTag}`;
+
+/**
+ * Escapa con una barra invertida las líneas de contenido que, tal cual, se leerían como
+ * estructura: un marcador de tab/subtab o la apertura del bloque del diccionario. A las líneas que
+ * ya empiezan por barras se les añade una más, de forma que el escape sea reversible.
+ */
+function encodeContent(text: string): string {
+  return text.replace(new RegExp(`^\\\\*(?=${STRUCTURE})`, 'gm'), (m) => m + '\\');
+}
+
+/** Deshace `encodeContent`: quita una barra a las líneas que, tras quitarla, son estructura. */
+function decodeContent(text: string): string {
+  return text.replace(new RegExp(`^\\\\(\\\\*)(?=${STRUCTURE})`, 'gm'), '$1');
+}
 
 const DICTIONARY = {
-  marker: 'diccionario',
+  marker: LEGACY.dictTag,
   description: [
     'Palabras que el corrector ortográfico de folio acepta, una por línea.',
     'Este bloque lo mantiene folio; no forma parte del texto.',
@@ -57,7 +80,7 @@ export interface Tab {
   subs: string[];
 }
 
-export interface TodoDocument {
+export interface FolioDocument {
   /** Espacios de texto, de 1 a TAB_COUNT elementos. */
   tabs: Tab[];
   /** Palabras del diccionario personal (vacío si no hay). */
@@ -72,7 +95,7 @@ export function allTexts(tabs: Tab[]): string[] {
   return tabs.flatMap((t) => [t.text, ...t.subs]);
 }
 
-export function splitDocument(text: string): TodoDocument {
+export function splitDocument(text: string): FolioDocument {
   const dict = splitBlock(text, DICTIONARY.marker);
   const words = (dict.content ?? '')
     .split('\n')
@@ -81,9 +104,10 @@ export function splitDocument(text: string): TodoDocument {
   return { tabs: parseTabs(dict.body), words };
 }
 
-export function joinDocument(doc: TodoDocument): string {
+export function joinDocument(doc: FolioDocument): string {
   let out = serializeTabs(doc.tabs);
-  if (doc.words.length) out = joinBlock(out, DICTIONARY.marker, DICTIONARY.description, escapeInner(doc.words.join('\n')));
+  if (doc.words.length)
+    out = joinBlock(out, DICTIONARY.marker, DICTIONARY.description, escapeInner(doc.words.join('\n')));
   return out;
 }
 
@@ -92,12 +116,13 @@ export function joinDocument(doc: TodoDocument): string {
 function serializeTabs(tabs: Tab[]): string {
   // Una sola tab vacía y sin subtabs es el documento vacío: un archivo nuevo sigue estando en blanco.
   if (tabs.length <= 1 && !(tabs[0]?.text ?? '').trim() && !(tabs[0]?.subs.length ?? 0)) return '';
-  const block = (marker: string, t: string) => (t.trim() ? `${marker}\n${t.replace(/\n+$/, '')}` : marker);
+  const block = (marker: string, t: string) =>
+    t.trim() ? `${marker}\n${encodeContent(t.replace(/\n+$/, ''))}` : marker;
   return tabs
     .slice(0, TAB_COUNT)
     .flatMap((tab, i) => [
-      block(`[todo:tab ${i + 1}]`, tab.text),
-      ...tab.subs.slice(0, TAB_COUNT).map((s, j) => block(`[todo:tab ${i + 1}.${j + 1}]`, s)),
+      block(`[${LEGACY.tabMarker} ${i + 1}]`, tab.text),
+      ...tab.subs.slice(0, TAB_COUNT).map((s, j) => block(`[${LEGACY.tabMarker} ${i + 1}.${j + 1}]`, s)),
     ])
     .join('\n');
 }
@@ -133,6 +158,7 @@ function parseTabs(text: string): Tab[] {
     let content = text.slice(start, end);
     if (content.startsWith('\n')) content = content.slice(1);
     if (content.endsWith('\n')) content = content.slice(0, -1);
+    content = decodeContent(content);
     if (idx < 0 || idx >= count) return;
     const tab = tabs[idx]!;
     if (m[2] === undefined) {
@@ -149,7 +175,7 @@ function parseTabs(text: string): Tab[] {
 
 function blockRe(marker: string): RegExp {
   // El interior no puede contener "-->": así el bloque nunca se cierra antes de tiempo.
-  return new RegExp(`(^|\\n)<!-- todo:${marker}[^\\n]*\\n((?:(?!-->)[\\s\\S])*)-->\\n?$`);
+  return new RegExp(`(^|\\n)<!-- ${marker}[^\\n]*\\n((?:(?!-->)[\\s\\S])*)-->\\n?$`);
 }
 
 /** Separa un bloque situado al final. `content` es null si no hay bloque. */
@@ -166,7 +192,7 @@ function splitBlock(text: string, marker: string): { body: string; content: stri
 }
 
 function joinBlock(body: string, marker: string, description: string[], content: string): string {
-  const block = [`<!-- todo:${marker}`, ...description, '', content, '-->'].join('\n') + '\n';
+  const block = [`<!-- ${marker}`, ...description, '', content, '-->'].join('\n') + '\n';
   if (body === '') return block;
   return body + (body.endsWith('\n') ? '\n' : '\n\n') + block;
 }

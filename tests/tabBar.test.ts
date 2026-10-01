@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { TabBar, type TabBarOptions } from '../src/ui/TabBar';
-import { TAB_COUNT, type Tab } from '../src/persistence/todoBlocks';
+import { TAB_COUNT, type Tab } from '../src/persistence/folioFormat';
 
 /** Tab con texto y, opcionalmente, subtabs. */
 const T = (text: string, subs: string[] = []): Tab => ({ text, subs });
@@ -137,7 +137,10 @@ describe('TabBar', () => {
 
     it('con una subtab abierta, su tab madre (y solo ella) lleva el fondo de las subtabs', () => {
       const bar = make([T('a', ['s1']), T('b', ['t1'])]);
-      const parents = () => mainsOf(bar).filter((b) => b.classList.contains('tab-bar__tab--parent')).map((b) => b.textContent);
+      const parents = () =>
+        mainsOf(bar)
+          .filter((b) => b.classList.contains('tab-bar__tab--parent'))
+          .map((b) => b.textContent);
       expect(parents()).toEqual([]); // la tab a está abierta: ya lleva el resalte de activa
       bar.setActive(1, 0);
       expect(parents()).toEqual(['b']);

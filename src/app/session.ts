@@ -1,20 +1,21 @@
 import { EditorView } from '@codemirror/view';
-import { DEFAULT_TODO_NAME, TODO_MIME, type FileAdapter, type TodoFile } from '../fs/FileAdapter';
+import { DEFAULT_FOLIO_NAME, FOLIO_MIME, type FileAdapter, type FolioFile } from '../fs/FileAdapter';
 import { FsAccessAdapter } from '../fs/FsAccessAdapter';
-import { download } from '../fs/FallbackAdapter';
-import { isTouch } from '../fs/detect';
-import { createEditor } from '../editor/createEditor';
+import { download } from '../fs/download';
+import { isTouch } from '../ui/env';
+import { createEditor, createEditorState } from '../editor/createEditor';
+import { TabStates } from './TabStates';
 import { spellcheck, spellCompartment, wordAt } from '../editor/spellcheck';
 import { countDone } from '../editor/strikethrough';
 import { zen, zenCompartment } from '../editor/zen';
 import { Autosave } from '../persistence/autosave';
 import { FileWatcher } from '../persistence/fileWatcher';
 import { LiveDraft } from '../persistence/liveDraft';
-import { VersionHistory } from '../persistence/backups';
-import { resolveTodoId } from '../persistence/files';
-import { acquireTodoLock } from '../persistence/locks';
+import { VersionHistory, sha256 } from '../persistence/backups';
+import { resolveFileIdentity } from '../persistence/files';
+import { acquireFileLock } from '../persistence/locks';
 import { PersonalDictionary } from '../persistence/dictionary';
-import { emptyTab, joinDocument, splitDocument, TAB_COUNT } from '../persistence/todoBlocks';
+import { emptyTab, joinDocument, splitDocument, TAB_COUNT } from '../persistence/folioFormat';
 import { prefs } from '../persistence/prefs';
 import { requestPersistentStorage } from '../persistence/db';
 import { SpellService } from '../spell/SpellService';
@@ -33,13 +34,15 @@ import { el, formatDateTime, relativeTime } from '../ui/el';
 export interface SessionOptions {
   root: HTMLElement;
   adapter: FileAdapter;
-  file: TodoFile;
+  file: FolioFile;
   onExit: () => void;
 }
 
 /** Sesión de edición viva. `close()` guarda lo pendiente y libera todos los recursos (incluido el bloqueo). */
 export interface Session {
   close(): Promise<void>;
+  /** Hay cambios sin guardar (o un guardado en curso o en error). */
+  isDirty(): boolean;
 }
 
 /**
@@ -55,24 +58,29 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
   const touch = isTouch();
 
   // 1. Leer y normalizar. `raw` es el archivo tal cual (con el bloque del diccionario, si lo hay).
-  let { text: raw, mtime } = await adapter.read(file);
+  const diskRead = await adapter.read(file);
+  let raw = diskRead.text;
+  const mtime = diskRead.mtime;
   /** Texto que hay realmente en el disco; `raw` puede pasar a ser el borrador recuperado. */
   const diskText = raw;
+  /** Hash de la versión del disco: el borrador solo se ofrece si parte de esta misma base. */
+  let baseHash = await sha256(diskText);
 
-  // 2. Identidad, almacenamiento persistente y bloqueo.
-  const todoId = await resolveTodoId(file);
+  // 2. Identidad, almacenamiento persistente y bloqueo. El historial va por nombre (`historyId`);
+  // el bloqueo y el borrador, por archivo físico (`fileKey`).
+  const { historyId, fileKey } = await resolveFileIdentity(file);
   void requestPersistentStorage();
-  const lock = await acquireTodoLock(todoId);
+  const lock = await acquireFileLock(fileKey);
   if (!lock.acquired) {
-    const takeover = await new Promise<boolean>((resolve) =>
-      openDialog(
+    // Cerrar el diálogo con Esc o con un clic fuera es «Volver»: si no, la apertura quedaría colgada.
+    const takeover =
+      (await openDialog(
         ['Este archivo ya está abierto en otra pestaña.'],
         [
-          { label: 'Volver', quiet: true, onClick: () => resolve(false) },
-          { label: 'Editar aquí', primary: true, onClick: () => resolve(true) },
+          { id: 'cancel', label: 'Volver', quiet: true },
+          { id: 'takeover', label: 'Editar aquí', primary: true },
         ],
-      ),
-    );
+      )) === 'takeover';
     if (!takeover) {
       lock.release();
       o.onExit();
@@ -81,14 +89,20 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     const result = await lock.requestTakeover();
     if (result === 'refused') {
       lock.release();
-      notice('La otra pestaña tiene cambios que aún no ha podido guardar. Resuélvelo allí antes de abrir el archivo aquí.', 8000);
+      notice(
+        'La otra pestaña tiene cambios que aún no ha podido guardar. Resuélvelo allí antes de abrir el archivo aquí.',
+        8000,
+      );
       o.onExit();
       return null;
     }
     // Sin respuesta: la otra pestaña está congelada, descartada o colgada. El bloqueo es una
     // salvaguarda, no una barrera: el usuario ya ha pedido editar aquí y se le deja.
     if (result === 'no-response') {
-      notice('La otra pestaña no responde. Se abre aquí; si allí sigue abierto, prevalecerá lo último que se guarde.', 8000);
+      notice(
+        'La otra pestaña no responde. Se abre aquí; si allí sigue abierto, prevalecerá lo último que se guarde.',
+        8000,
+      );
     }
   }
 
@@ -110,27 +124,35 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     // 3. Historial: versión de apertura (lo que hay en el disco, antes de cualquier recuperación) si
     // hace más de una hora de la última, y una cada hora mientras la sesión siga abierta.
     // Nunca bloquea la apertura: si IndexedDB falla, simplemente no hay versión.
-    const history = new VersionHistory(todoId, () => getText());
+    const history = new VersionHistory(historyId, () => getText());
     disposers.push(() => history.dispose());
     const backupReady = degraded ? Promise.resolve() : history.saveIfDue(diskText).then(() => {});
     if (!degraded) history.start();
 
-    // 4. Comprobación de borrador vivo (guarda el texto completo, diccionario incluido).
-    const liveDraft = new LiveDraft(todoId);
-    const draft = await LiveDraft.read(todoId);
+    // 4. Comprobación de borrador vivo (guarda el texto completo, diccionario incluido). Se busca
+    // por la clave del archivo físico; si no hay, por el id por nombre (borradores anteriores).
+    const liveDraft = new LiveDraft(fileKey, () => baseHash);
+    let draft = await LiveDraft.read(fileKey);
+    let draftKey = fileKey;
+    if (!draft && fileKey !== historyId) {
+      draft = await LiveDraft.read(historyId);
+      draftKey = historyId;
+    }
     let recovered = false;
-    if (draft && draft.ts > mtime && draft.text !== raw) {
-      recovered = await new Promise<boolean>((resolve) =>
-        openDialog(
+    // `baseHash` ausente = borrador anterior al cambio: se acepta con la comprobación de siempre.
+    const draftFits = !!draft && (draft.baseHash === undefined || draft.baseHash === baseHash);
+    if (draft && draftFits && draft.ts > mtime && draft.text !== raw) {
+      // Esc o clic fuera = «Descartar»: la promesa nunca se queda sin resolver.
+      recovered =
+        (await openDialog(
           [`Hay cambios sin guardar de ${relativeTime(draft.ts)}. ¿Quieres recuperarlos?`],
           [
-            { label: 'Descartar', quiet: true, onClick: () => resolve(false) },
-            { label: 'Recuperar', primary: true, onClick: () => resolve(true) },
+            { id: 'discard', label: 'Descartar', quiet: true },
+            { id: 'recover', label: 'Recuperar', primary: true },
           ],
-        ),
-      );
+        )) === 'recover';
       if (recovered) raw = draft.text;
-      else void liveDraft.clear().catch(() => {}); // que no vuelva a preguntar en la próxima apertura
+      else void LiveDraft.remove(draftKey).catch(() => {}); // que no vuelva a preguntar en la próxima apertura
     }
 
     // Las tabs son el documento; el diccionario viaja al final del archivo como comentario HTML.
@@ -172,8 +194,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     let activeTab = 0;
     /** Subtab abierta dentro de `activeTab`, o -1 si lo que se edita es la propia tab. */
     let activeSub = -1;
-    /** `true` mientras se vuelca en el editor la versión del disco: ese cambio no es del usuario. */
-    let syncingFromDisk = false;
 
     /** Texto de la tab `t` (o de su subtab `s`, si `s` ≥ 0). */
     const textOf = (t: number, s: number): string => (s < 0 ? tabs[t]?.text : tabs[t]?.subs[s]) ?? '';
@@ -200,21 +220,33 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     tabBar.root.addEventListener('pointerdown', () => (editorHadFocus = view.hasFocus), true);
     tabBar.root.addEventListener('mousedown', (e) => e.preventDefault());
 
-    const view = createEditor({
-      parent: editorRoot,
-      doc: textOf(activeTab, activeSub),
+    /** Primera línea no vacía del documento: basta para el título de la tab activa. */
+    const firstLine = (): string => {
+      const doc = view.state.doc;
+      for (let n = 1; n <= doc.lines; n++) {
+        const text = doc.line(n).text;
+        if (text.trim()) return text;
+      }
+      return '';
+    };
+    const updateListener = EditorView.updateListener.of((u) => {
+      if (!u.docChanged) return;
+      // Nada de O(n) por pulsación: el modelo se sincroniza al guardar o cambiar de tab, el título
+      // de la tab activa se recalcula con su primera línea y el contador se agrupa en un frame.
+      tabBar.refreshActive(firstLine());
+      scheduleDone();
+      markChanged();
+    });
+    /** Config del editor: se relee en cada estado nuevo para que tome el corrector/zen actuales. */
+    const editorConfig = () => ({
       spell: prefs.get('spellEnabled') ? spellExt.extension : [],
       zen: prefs.get('zen'),
-      extra: [
-        EditorView.updateListener.of((u) => {
-          if (!u.docChanged) return;
-          syncActive();
-          tabBar.render();
-          refreshDone();
-          if (!syncingFromDisk) markChanged();
-        }),
-      ],
+      extra: [updateListener],
     });
+    const view = createEditor({ parent: editorRoot, doc: textOf(activeTab, activeSub), ...editorConfig() });
+    // Un `EditorState` por tab/subtab: cambiar de tab no es una transacción, así que no entra en el
+    // historial y ⌘Z nunca devuelve el texto de otra tab.
+    const states = new TabStates(view, (doc) => createEditorState(doc, editorConfig()));
     disposers.push(() => view.destroy());
 
     /**
@@ -227,21 +259,22 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       return keep;
     }
 
-    /** Vuelca la tab `t` (o su subtab `s`) en el editor y la marca como activa (sin tocar el contenido de ninguna). */
+    /**
+     * Vuelca la tab `t` (o su subtab `s`) en el editor y la marca como activa. No es una transacción
+     * sobre el documento: se cambia de `EditorState`, así que no toca el historial de ninguna tab.
+     */
     function showTab(t: number, s: number, keepFocus: boolean): void {
       activeTab = t;
       activeSub = s;
-      const text = textOf(t, s);
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: text },
-        selection: { anchor: text.length },
-      });
+      const isNew = states.load(tabs[t]!, s, textOf(t, s));
+      // Al estrenar una tab el cursor arranca al final (y el focus mode queda colocado, como antes).
+      if (isNew) view.dispatch({ selection: { anchor: view.state.doc.length } });
       tabBar.setActive(t, s);
       refreshDone();
       if (keepFocus) view.focus();
     }
 
-    /** Cambia la tab (o subtab) activa: guarda el contenido actual y carga el de la nueva. */
+    /** Cambia la tab (o subtab) activa: guarda el estado actual y carga el de la nueva. */
     function switchTab(t: number, s = -1): void {
       const keepFocus = shouldKeepFocus();
       if (t < 0 || t >= tabs.length) return;
@@ -251,6 +284,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         return;
       }
       syncActive();
+      states.save(tabs[activeTab]!, activeSub);
       showTab(t, Math.max(s, -1), keepFocus);
     }
 
@@ -259,6 +293,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       const keepFocus = shouldKeepFocus();
       if (activeSub >= 0 || tabs.length >= TAB_COUNT) return;
       syncActive();
+      states.save(tabs[activeTab]!, activeSub);
       tabs.push(emptyTab());
       showTab(tabs.length - 1, -1, keepFocus);
       markChanged(); // la tab nueva se escribe (marcador vacío) para que exista al reabrir
@@ -270,6 +305,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       const tab = tabs[activeTab];
       if (activeSub >= 0 || !tab || tab.subs.length >= TAB_COUNT) return;
       syncActive();
+      states.save(tab, activeSub);
       tab.subs.push('');
       showTab(activeTab, tab.subs.length - 1, keepFocus);
       markChanged();
@@ -292,14 +328,19 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     function removeActive(): void {
       const keepFocus = shouldKeepFocus();
       if (!canRemoveActive()) return;
+      syncActive();
+      const tab = tabs[activeTab]!;
+      states.save(tab, activeSub);
       if (activeSub >= 0) {
         // Pasa a estar activa la subtab que ocupa ahora su sitio (o la última); sin subtabs, la tab.
-        const subs = tabs[activeTab]!.subs;
+        const subs = tab.subs;
         subs.splice(activeSub, 1);
+        states.dropSub(tab, activeSub);
         showTab(activeTab, Math.min(activeSub, subs.length - 1), keepFocus);
       } else {
         // Pasa a estar activa la tab que ocupa ahora su sitio (o la última), sin subtab.
         tabs.splice(activeTab, 1);
+        states.drop(tab);
         showTab(Math.min(activeTab, tabs.length - 1), -1, keepFocus);
       }
       markChanged();
@@ -311,7 +352,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       return joinDocument({ tabs, words: dictionary.list() });
     };
     const markChanged = () => {
-      liveDraft.schedule(getText());
+      liveDraft.schedule();
       if (!degraded) autosave.markDirty();
       else saveStatus.set('degraded');
     };
@@ -321,25 +362,40 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     if (!touch) view.focus();
     // El cursor arranca al final de la tab activa.
     view.dispatch({ selection: { anchor: view.state.doc.length } });
+    // El estado que ya muestra el editor es el de la tab activa: queda guardado en la caché.
+    states.seed(tabs[activeTab]!, activeSub, view.state);
 
     // 7. Autosave.
-    const fsAdapter = adapter instanceof FsAccessAdapter ? adapter : null;
+    const canWatch = typeof adapter.mtime === 'function';
+    // Último tipo de error avisado: evita repetir el mismo aviso en cada intento.
+    let lastErrorKind: string | undefined;
     const autosave: Autosave = new Autosave({
       getText,
       initialMtime: mtime,
       io: {
-        mtime: (): Promise<number> => (fsAdapter ? fsAdapter.mtime(file) : Promise.resolve(autosave.lastKnownMtime)),
+        mtime: async (): Promise<number> => (adapter.mtime ? adapter.mtime(file) : autosave.lastKnownMtime),
         write: async (t) => (await adapter.write(file, t)).mtime,
+        // Solo se usa cuando el mtime es posterior, para ver si el contenido cambió de verdad.
+        read: () => adapter.read(file),
       },
       onState: (state, info) => {
         saveStatus.set(degraded ? 'degraded' : state, info.lastSaved);
-        if (state === 'saved') void liveDraft.clear();
+        if (state === 'saved') {
+          lastErrorKind = undefined;
+          void liveDraft.clear();
+        }
       },
       // Alguien guardó después que nosotros: se descarta lo local y se carga lo del disco.
       onNewerOnDisk: () => reloadFromDisk({ unlessSaving: false }),
       onError: (kind) => {
-        if (kind === 'permission') notice('folio perdió el permiso de escritura. Pulsa el punto de estado para recuperarlo.', 6000);
-        else if (kind === 'not-found') notice('El archivo ya no está donde estaba. Pulsa el punto de estado para guardarlo en otro sitio.', 6000);
+        // Avisar solo al entrar en error o al cambiar de tipo; con el permiso revocado, si no,
+        // el aviso se repetiría cada ~1,5 s mientras se escribe.
+        if (kind === lastErrorKind) return;
+        lastErrorKind = kind;
+        if (kind === 'permission')
+          notice('folio perdió el permiso de escritura. Pulsa el punto de estado para recuperarlo.', 6000);
+        else if (kind === 'not-found')
+          notice('El archivo ya no está donde estaba. Pulsa el punto de estado para guardarlo en otro sitio.', 6000);
       },
     });
     disposers.push(() => autosave.dispose());
@@ -356,7 +412,9 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     const brand = document.querySelector<HTMLElement>('.brand');
     if (brand) {
       disposers.push(
-        saveStatus.subscribe(() => {
+        saveStatus.subscribe((state) => {
+          // El título solo cambia cuando hay algo nuevo que contar (guardado o error).
+          if (state !== 'saved' && state !== 'error') return;
           brand.title = `${file.name}\nÚltima modificación: ${formatDateTime(autosave.lastKnownMtime)}`;
         }),
       );
@@ -364,9 +422,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     }
 
     // Contador de TO-DOs resueltos (líneas tachadas) de la tab abierta, en rojo junto a la marca.
-    const doneCount = brand
-      ? el('span', { class: 'done-count', attrs: { 'aria-label': 'TO-DOs resueltos' } })
-      : null;
+    const doneCount = brand ? el('span', { class: 'done-count', attrs: { 'aria-label': 'TO-DOs resueltos' } }) : null;
     if (brand && doneCount) brand.before(doneCount);
     if (doneCount) disposers.push(() => doneCount.remove());
     const refreshDone = () => {
@@ -375,29 +431,49 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       doneCount.textContent = n > 0 ? String(n) : '';
     };
     refreshDone();
+    // El contador de TO-DOs se recalcula como mucho una vez por frame, no en cada pulsación.
+    let doneScheduled = false;
+    const scheduleDone = () => {
+      if (doneScheduled) return;
+      doneScheduled = true;
+      requestAnimationFrame(() => {
+        doneScheduled = false;
+        refreshDone();
+      });
+    };
 
     // 8. Corrector.
     const loadSpell = async () => {
       try {
         await spell.load();
-        await spell.addWords(dictionary.list());
       } catch (e) {
         notice('No se pudo cargar el diccionario ortográfico.');
         console.error(e);
       }
     };
-    if (prefs.get('spellEnabled')) void loadSpell();
+    // Cargar cuando el navegador esté libre: no competir con el primer pintado ni el primer escaneo.
+    const whenIdle = (fn: () => void) => {
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(() => fn(), { timeout: 2000 });
+      else setTimeout(fn, 0);
+    };
+    if (prefs.get('spellEnabled')) whenIdle(() => void loadSpell());
 
     const setSpellEnabled = (on: boolean) => {
       prefs.set('spellEnabled', on);
-      view.dispatch({ effects: spellCompartment.reconfigure(on ? spellExt.extension : []) });
+      const effect = spellCompartment.reconfigure(on ? spellExt.extension : []);
+      view.dispatch({ effects: effect });
+      states.updateAll(effect); // las demás tabs guardadas tomarán el corrector al abrirse
       if (on && !spell.ready) void loadSpell();
     };
     const rescanSpell = () => view.plugin(spellExt.plugin)?.rescan();
-    /** Tras quitar palabras del diccionario: Hunspell no permite olvidarlas, así que se recarga. */
-    const reloadSpell = () => {
-      spell.dispose();
-      if (prefs.get('spellEnabled')) void loadSpell().then(rescanSpell);
+    /**
+     * Quitar una palabra del diccionario personal: basta con invalidar su caché y re-escanear.
+     * Hunspell no la conoce (las del diccionario personal se filtran en el hilo principal), así que
+     * no hace falta recargarlo entero (~500 ms y ~50 MB por palabra).
+     */
+    const forgetWord = (word: string) => {
+      spell.forget(word);
+      rescanSpell();
     };
 
     /**
@@ -406,7 +482,9 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
      */
     const setZen = (on: boolean) => {
       prefs.set('zen', on);
-      view.dispatch({ effects: zenCompartment.reconfigure(zen(on)) });
+      const effect = zenCompartment.reconfigure(zen(on));
+      view.dispatch({ effects: effect });
+      states.updateAll(effect);
     };
 
     // 9. El disco manda si es más nuevo.
@@ -421,27 +499,28 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     /** Sustituye el documento por lo que hay en el disco, conservando el cursor, y acepta su mtime. */
     const applyDiskVersion = (fresh: { text: string; mtime: number }) => {
       const split = splitDocument(fresh.text);
-      const wordsBefore = dictionary.list().join('\n');
+      const wordsBefore = dictionary.list();
+      const prevHead = view.state.selection.main.head;
+      // El borrador pasa a partir de esta versión del disco.
+      void sha256(fresh.text).then((h) => (baseHash = h));
       tabs.splice(0, tabs.length, ...split.tabs);
       dictionary.load(split.words);
       // El disco puede traer menos tabs (o subtabs) de las que había: la activa no puede quedar fuera.
       if (activeTab >= tabs.length) activeTab = tabs.length - 1;
       if (activeSub >= tabs[activeTab]!.subs.length) activeSub = tabs[activeTab]!.subs.length - 1;
       const next = textOf(activeTab, activeSub);
-      const head = Math.min(view.state.selection.main.head, next.length);
-      syncingFromDisk = true;
-      try {
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: next },
-          selection: { anchor: head },
-        });
-      } finally {
-        syncingFromDisk = false;
-      }
+      // La versión del disco estrena estados: su historial arranca limpio y ⌘Z no devuelve lo local.
+      states.clear();
+      const state = createEditorState(next, editorConfig()).update({
+        selection: { anchor: Math.min(prevHead, next.length) },
+      }).state;
+      states.set(tabs[activeTab]!, activeSub, state);
       tabBar.setActive(activeTab, activeSub);
-      // Hunspell no permite olvidar palabras: si el diccionario personal cambió, se recarga entero.
-      if (dictionary.list().join('\n') !== wordsBefore) reloadSpell();
-      else rescanSpell();
+      // Si el diccionario personal cambió, se invalidan solo las palabras quitadas (sin recargar
+      // Hunspell) y se re-escanea.
+      const now = new Set(dictionary.list());
+      for (const w of wordsBefore) if (!now.has(w)) spell.forget(w);
+      rescanSpell();
       autosave.accept(fresh.mtime, fresh.text);
     };
 
@@ -453,6 +532,12 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     const reloadFromDisk = async ({ unlessSaving }: { unlessSaving: boolean }) => {
       const fresh = await adapter.read(file);
       if (unlessSaving && autosave.state === 'saving') return;
+      // El mtime cambió pero el contenido es el mismo que ya teníamos (iCloud reescribe la fecha
+      // sin tocar el texto): se acepta la fecha nueva en silencio, sin recargar ni avisar.
+      if (autosave.isSameAsSaved(fresh.text)) {
+        autosave.accept(fresh.mtime, fresh.text);
+        return;
+      }
       applyDiskVersion(fresh);
       notice('El archivo cambió en otro dispositivo: se ha cargado la versión más reciente.');
     };
@@ -465,14 +550,14 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     // editor con una versión y el disco con otra, y el mtime de nuestra escritura ocultaría la
     // diferencia. Además esa escritura ya hace su propia comprobación. Se espera al siguiente ciclo.
     const watcher = new FileWatcher({
-      mtime: () => (fsAdapter ? fsAdapter.mtime(file) : Promise.resolve(autosave.lastKnownMtime)),
+      mtime: async () => (adapter.mtime ? adapter.mtime(file) : autosave.lastKnownMtime),
       lastKnown: () => autosave.lastKnownMtime,
       canReload: () => autosave.state !== 'saving',
       onChange: () => reloadFromDisk({ unlessSaving: true }),
       onError: (e) => console.debug('[folio] no se pudo comprobar el archivo', e),
     });
     disposers.push(() => watcher.dispose());
-    if (fsAdapter) watcher.start();
+    if (canWatch) watcher.start();
 
     // 10. Comandos.
     // Al cerrar un panel, en escritorio el cursor vuelve al texto; en táctil no, porque eso
@@ -483,11 +568,11 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
 
     const saveAs = async () => {
       const t = getText();
-      const f = await adapter.saveAs(t, file.name || DEFAULT_TODO_NAME);
+      const f = await adapter.saveAs(t, file.name || DEFAULT_FOLIO_NAME);
       if (!f) return;
       file = f;
       if (!degraded) {
-        const m = fsAdapter ? await fsAdapter.mtime(f) : Date.now();
+        const m = adapter.mtime ? await adapter.mtime(f) : Date.now();
         autosave.accept(m, t);
         notice(`Guardado en ${f.name}`);
       } else {
@@ -509,7 +594,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
             // Los saltos directos a una tab o subtab (`tab.N`, `subtab.N`) van por atajo; crear y eliminar sí se listan.
             .filter((c) => c.id !== 'menu' && !/^(sub)?tab\.\d+$/.test(c.id))
             // En táctil no hay teclado físico: los atajos a la derecha solo estorban.
-            .map((c) => ({ id: c.id, label: labelOf(c), meta: touch ? undefined : (c.shortcut ?? shortcutFor(c.id)) }));
+            .map((c) => ({ id: c.id, label: labelOf(c), meta: touch ? undefined : shortcutFor(c.id) }));
           // Sin ratón no hay tooltip en el punto de estado: el estado del guardado se lee aquí.
           if (touch) {
             const status = describeStatus(saveStatus.state, saveStatus.lastSaved);
@@ -576,7 +661,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         keywords: 'palabras ortografía',
         // Solo tiene sentido con el corrector activado.
         when: () => prefs.get('spellEnabled'),
-        run: () => openDictionaryManager(dictionary, reloadSpell, focusEditor),
+        run: () => openDictionaryManager(dictionary, forgetWord, focusEditor),
       },
       // Crear y quitar tabs y subtabs. Solo se crea desde una tab principal (no desde una subtab);
       // se quita solo la abierta, y solo si está vacía.
@@ -613,7 +698,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
             return;
           }
           await backupReady; // que la versión de apertura, si la hay, ya esté en la lista
-          openHistory(todoId, file.name, { saveNow: () => history.saveNow(), restoreFocus: focusEditor });
+          openHistory(historyId, file.name, { saveNow: () => history.saveNow(), restoreFocus: focusEditor });
         },
       },
       {
@@ -629,7 +714,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           const w = wordAt(view, view.state.selection.main.head);
           if (!w) return;
           dictionary.add(w.word);
-          await spell.addWords([w.word]);
+          // No hace falta enseñársela a Hunspell: `shouldSkip` ya ignora las del diccionario personal.
           rescanSpell();
           notice(`«${w.word}» añadida al diccionario.`);
         },
@@ -638,7 +723,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         id: 'export.txt',
         label: 'Descargar el .txt',
         when: () => degraded,
-        run: () => download(getText(), file.name || DEFAULT_TODO_NAME, TODO_MIME),
+        run: () => download(getText(), file.name || DEFAULT_FOLIO_NAME, FOLIO_MIME),
       },
       {
         id: 'save',
@@ -702,12 +787,18 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       if (!degraded) void autosave.flush();
     };
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') onHide();
-      // Al volver a la pestaña: comprobar ya si el archivo cambió mientras estábamos fuera.
-      else if (fsAdapter) void watcher.check();
+      if (document.visibilityState === 'hidden') {
+        onHide();
+        // Con la pestaña oculta no hay cambios que detectar: parar el sondeo ahorra batería y
+        // accesos a iCloud. Al volver se reanuda y se comprueba de inmediato.
+        watcher.stop();
+      } else if (canWatch) {
+        watcher.start();
+        void watcher.check();
+      }
     };
     const onFocus = () => {
-      if (fsAdapter) void watcher.check();
+      if (canWatch) void watcher.check();
     };
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       void liveDraft.flush();
@@ -733,7 +824,11 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       if (autosave.isDirty && !degraded) return false;
       teardown();
       root.replaceChildren(
-        el('main', { class: 'start' }, el('p', { class: 'start__note' }, 'Este archivo se está editando en otra pestaña.')),
+        el(
+          'main',
+          { class: 'start' },
+          el('p', { class: 'start__note' }, 'Este archivo se está editando en otra pestaña.'),
+        ),
       );
       return true;
     });
@@ -744,6 +839,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         if (!degraded) await autosave.flush();
         teardown();
       },
+      isDirty: () => !degraded && autosave.isDirty,
     };
   } catch (e) {
     teardown();

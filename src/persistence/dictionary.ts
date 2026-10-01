@@ -1,6 +1,6 @@
 /**
  * Diccionario personal del archivo abierto. Vive en memoria; la sesión lo serializa
- * dentro del archivo (ver todoBlocks.ts) cada vez que cambia.
+ * dentro del archivo (ver folioFormat.ts) cada vez que cambia.
  */
 export class PersonalDictionary {
   private words = new Set<string>();

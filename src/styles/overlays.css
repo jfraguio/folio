@@ -48,22 +48,6 @@
   }
 }
 
-.panel__input {
-  width: 100%;
-  font: inherit;
-  font-size: 1rem;
-  color: var(--fg);
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--panel-border);
-  padding: 0.85rem 1rem;
-  outline: none;
-}
-
-.panel__input::placeholder {
-  color: var(--fg-dim);
-}
-
 .panel__list {
   list-style: none;
   margin: 0;
@@ -93,11 +77,6 @@
   }
 }
 
-.panel__item--nested {
-  padding-left: 2rem;
-  color: var(--fg-dim);
-}
-
 .panel__item--active {
   background: var(--sel);
 }
@@ -115,10 +94,6 @@
 
 .panel__item--info.panel__item--active {
   background: transparent;
-}
-
-.panel__item--current .panel__label {
-  font-weight: 700;
 }
 
 .panel__label {
@@ -148,6 +123,17 @@
   gap: 1rem;
   padding: 0.6rem 1rem;
   border-top: 1px solid var(--panel-border);
+  font-size: 0.72rem;
+  color: var(--fg-dim);
+}
+
+/* Cabecera de un panel alto (diccionario, historial): mismo aspecto que el pie, pero arriba. */
+.panel__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--panel-border);
   font-size: 0.72rem;
   color: var(--fg-dim);
 }

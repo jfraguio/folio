@@ -1,9 +1,9 @@
 import { el, clear, formatDateTime } from './el';
 import { openOverlay } from './Menu';
 import { notice } from './Notice';
-import { saveToNewFile } from '../fs/FallbackAdapter';
-import { TODO_EXTENSION, TODO_MIME } from '../fs/FileAdapter';
-import { listVersions, versionFileName } from '../persistence/backups';
+import { saveToNewFile } from '../fs/download';
+import { FOLIO_EXTENSION, FOLIO_MIME } from '../fs/FileAdapter';
+import { getVersion, listVersionsMeta, versionFileName, type VersionMeta } from '../persistence/backups';
 import type { BackupRecord } from '../persistence/db';
 import { formatNumber } from '../text/words';
 
@@ -20,7 +20,7 @@ export interface HistoryOptions {
  */
 export function openHistory(todoId: string, fileName: string, o: HistoryOptions): void {
   const list = el('div', { class: 'history' });
-  const header = el('div', { class: 'panel__footer', style: { borderTop: 'none', borderBottom: '1px solid var(--panel-border)' } }, 'Historial');
+  const header = el('div', { class: 'panel__header' }, 'Historial');
   const saveBtn = el(
     'button',
     {
@@ -65,9 +65,10 @@ export function openHistory(todoId: string, fileName: string, o: HistoryOptions)
   const handle = openOverlay(panel, { restoreFocus: o.restoreFocus, tall: true });
 
   const render = async () => {
-    let versions: BackupRecord[];
+    let versions: VersionMeta[];
     try {
-      versions = await listVersions(todoId);
+      // Solo metadatos: el texto de cada versión se lee al pulsar «Descargar».
+      versions = await listVersionsMeta(todoId);
     } catch (e) {
       clear(list);
       list.appendChild(el('span', { class: 'panel__meta' }, 'No se pudo leer el historial.'));
@@ -96,7 +97,16 @@ export function openHistory(todoId: string, fileName: string, o: HistoryOptions)
               on: {
                 click: async () => {
                   try {
-                    const saved = await saveToNewFile(v.text, name, { description: 'Texto', mime: TODO_MIME, extension: TODO_EXTENSION });
+                    const full: BackupRecord | undefined = await getVersion(todoId, v.ts);
+                    if (!full) {
+                      notice('La versión ya no está disponible.');
+                      return;
+                    }
+                    const saved = await saveToNewFile(full.text, name, {
+                      description: 'Texto',
+                      mime: FOLIO_MIME,
+                      extension: FOLIO_EXTENSION,
+                    });
                     if (saved) notice(`Versión guardada en ${saved}`);
                   } catch (e) {
                     notice('No se pudo descargar la versión.');

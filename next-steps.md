@@ -17,18 +17,18 @@ Al final hay un plan por fases. Las referencias van como `archivo:línea`.
 
 ## Hallazgos prioritarios (resumen)
 
-| # | Hallazgo | Tipo | Gravedad | Ref. |
-|---|---|---|---|---|
-| 1 | **⌘Z después de cambiar de tab mete el texto de la tab anterior en la actual**, y el autosave lo escribe en el archivo. Lo he reproducido. | Bug / datos | **Crítica** | `session.ts:235`, `session.ts:434` |
-| 2 | **En Windows, con teclado español, no se pueden escribir `@`, `#`, `\|` ni `~`**: AltGr llega como Ctrl+Alt y cae en los atajos de subtabs. Sin `#` no hay títulos. | Bug | **Alta** | `shortcuts.ts:20-33` |
-| 3 | **Si se cierra con Esc o con clic fuera el diálogo de «recuperar borrador» o el de «abierto en otra pestaña», la apertura se queda colgada** (la promesa nunca se resuelve y el bloqueo sigue cogido). | Resiliencia | **Alta** | `Dialog.ts:30`, `Menu.ts:55-62`, `session.ts:67`, `session.ts:123` |
-| 4 | **Un archivo de texto plano con una línea `[todo:tab N]` en medio cambia de estructura al guardarlo y reabrirlo** (el texto se reparte entre tabs). Lo he reproducido. | Datos | Alta | `todoBlocks.ts:105-111` |
-| 5 | **Si el corrector falla una vez al cargar, queda roto toda la sesión** (`ready` sigue a `true` con la promesa rechazada) y no hay forma de reintentar. | Resiliencia | Media | `SpellService.ts:13-35` |
-| 6 | **Quitar una palabra del diccionario recarga Hunspell entero** (~500 ms de CPU y 50 MB). No hace falta: el diccionario personal ya se filtra en el hilo principal. | Rendimiento | Media | `session.ts:398`, `spellcheck.ts:46` |
-| 7 | La identidad del archivo va por **nombre**, y todo archivo nuevo se llama `folio.txt`. Dos archivos distintos comparten borrador, historial y bloqueo, y se puede **ofrecer recuperar en B el borrador de A**. | Datos | Media | `files.ts:31-42` |
-| 8 | Cuando iCloud cambia el `mtime` sin cambiar el contenido, se recarga el archivo, sale un aviso falso y **se descartan los últimos segundos de escritura**. | Resiliencia | Media | `autosave.ts:142-151`, `fileWatcher.ts:57` |
-| 9 | Carrera entre el borrador vivo y el guardado: al pasar a `saved` se borra el borrador pendiente aunque haya pulsaciones posteriores sin guardar. | Resiliencia | Baja-media | `session.ts:336`, `liveDraft.ts:37-42` |
-| 10 | El smoke test (`scripts/smoke.mjs`) no funciona: `playwright-core` no está instalado, usa rutas absolutas de tu máquina y espera un orden de menú antiguo. | Tooling | Media | `scripts/smoke.mjs:4,7,134` |
+| #   | Hallazgo                                                                                                                                                                                                       | Tipo        | Gravedad    | Ref.                                                               |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ----------- | ------------------------------------------------------------------ |
+| 1   | **⌘Z después de cambiar de tab mete el texto de la tab anterior en la actual**, y el autosave lo escribe en el archivo. Lo he reproducido.                                                                     | Bug / datos | **Crítica** | `session.ts:235`, `session.ts:434`                                 |
+| 2   | **En Windows, con teclado español, no se pueden escribir `@`, `#`, `\|` ni `~`**: AltGr llega como Ctrl+Alt y cae en los atajos de subtabs. Sin `#` no hay títulos.                                            | Bug         | **Alta**    | `shortcuts.ts:20-33`                                               |
+| 3   | **Si se cierra con Esc o con clic fuera el diálogo de «recuperar borrador» o el de «abierto en otra pestaña», la apertura se queda colgada** (la promesa nunca se resuelve y el bloqueo sigue cogido).         | Resiliencia | **Alta**    | `Dialog.ts:30`, `Menu.ts:55-62`, `session.ts:67`, `session.ts:123` |
+| 4   | **Un archivo de texto plano con una línea `[todo:tab N]` en medio cambia de estructura al guardarlo y reabrirlo** (el texto se reparte entre tabs). Lo he reproducido.                                         | Datos       | Alta        | `todoBlocks.ts:105-111`                                            |
+| 5   | **Si el corrector falla una vez al cargar, queda roto toda la sesión** (`ready` sigue a `true` con la promesa rechazada) y no hay forma de reintentar.                                                         | Resiliencia | Media       | `SpellService.ts:13-35`                                            |
+| 6   | **Quitar una palabra del diccionario recarga Hunspell entero** (~500 ms de CPU y 50 MB). No hace falta: el diccionario personal ya se filtra en el hilo principal.                                             | Rendimiento | Media       | `session.ts:398`, `spellcheck.ts:46`                               |
+| 7   | La identidad del archivo va por **nombre**, y todo archivo nuevo se llama `folio.txt`. Dos archivos distintos comparten borrador, historial y bloqueo, y se puede **ofrecer recuperar en B el borrador de A**. | Datos       | Media       | `files.ts:31-42`                                                   |
+| 8   | Cuando iCloud cambia el `mtime` sin cambiar el contenido, se recarga el archivo, sale un aviso falso y **se descartan los últimos segundos de escritura**.                                                     | Resiliencia | Media       | `autosave.ts:142-151`, `fileWatcher.ts:57`                         |
+| 9   | Carrera entre el borrador vivo y el guardado: al pasar a `saved` se borra el borrador pendiente aunque haya pulsaciones posteriores sin guardar.                                                               | Resiliencia | Baja-media  | `session.ts:336`, `liveDraft.ts:37-42`                             |
+| 10  | El smoke test (`scripts/smoke.mjs`) no funciona: `playwright-core` no está instalado, usa rutas absolutas de tu máquina y espera un orden de menú antiguo.                                                     | Tooling     | Media       | `scripts/smoke.mjs:4,7,134`                                        |
 
 ---
 
@@ -59,14 +59,14 @@ Con la recarga desde disco pasa lo mismo: un ⌘Z tras recibir la versión de ot
 
 Propuesta de módulos (sin cambiar el comportamiento):
 
-| Módulo | Responsabilidad | Testeable sin DOM |
-|---|---|---|
-| `app/TabModel.ts` | `tabs`, `active{Tab,Sub}`, `add/addSub/remove/canRemove/select`, `textOf/setTextOf`; emite eventos (`change`, `activeChange`). | Sí |
-| `app/DocumentSync.ts` | Autosave, borrador vivo, `FileWatcher`, `applyDiskVersion`, `reloadFromDisk`, `saveAs`. | Sí (con IO simulada) |
-| `app/SpellController.ts` | Carga, activación, añadir y quitar palabras, re-escaneo. | Casi |
-| `app/sessionCommands.ts` | Registro de comandos (hoy `session.ts:498-694`). | Sí |
-| `app/lifecycle.ts` | `visibilitychange`, `pagehide`, `beforeunload`, `focus`, cesión del bloqueo. | — |
-| `app/session.ts` | Solo orquesta: crea y conecta lo anterior y devuelve `close()`. | — |
+| Módulo                   | Responsabilidad                                                                                                                | Testeable sin DOM    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| `app/TabModel.ts`        | `tabs`, `active{Tab,Sub}`, `add/addSub/remove/canRemove/select`, `textOf/setTextOf`; emite eventos (`change`, `activeChange`). | Sí                   |
+| `app/DocumentSync.ts`    | Autosave, borrador vivo, `FileWatcher`, `applyDiskVersion`, `reloadFromDisk`, `saveAs`.                                        | Sí (con IO simulada) |
+| `app/SpellController.ts` | Carga, activación, añadir y quitar palabras, re-escaneo.                                                                       | Casi                 |
+| `app/sessionCommands.ts` | Registro de comandos (hoy `session.ts:498-694`).                                                                               | Sí                   |
+| `app/lifecycle.ts`       | `visibilitychange`, `pagehide`, `beforeunload`, `focus`, cesión del bloqueo.                                                   | —                    |
+| `app/session.ts`         | Solo orquesta: crea y conecta lo anterior y devuelve `close()`.                                                                | —                    |
 
 ### 1.3. Modelo de tabs explícito en lugar de arrays compartidos
 
@@ -123,12 +123,12 @@ Propuesta sin cambiar la funcionalidad visible:
 
 Hay varias expresiones regulares para lo mismo, y no siempre coinciden:
 
-| Concepto | Dónde | Diferencia |
-|---|---|---|
-| Palabra | `TabBar.ts:6`, `words.ts:3`, `spellcheck.ts:20` | La del corrector no acepta dígitos; las otras sí. |
-| URL | `links.ts:15`, `spellcheck.ts:23` | Duplicada. |
-| Título `#` | `strikethrough.ts:16` (`^[ \t]*#`), `words.ts:5` (`^\s{0,3}#{1,6}\s`) | El historial no descuenta como título `#Compra` y sí descuenta `# Compra`; el editor pinta los dos como título. |
-| Línea hecha `--` | `strikethrough.ts:14` | — |
+| Concepto         | Dónde                                                                 | Diferencia                                                                                                      |
+| ---------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Palabra          | `TabBar.ts:6`, `words.ts:3`, `spellcheck.ts:20`                       | La del corrector no acepta dígitos; las otras sí.                                                               |
+| URL              | `links.ts:15`, `spellcheck.ts:23`                                     | Duplicada.                                                                                                      |
+| Título `#`       | `strikethrough.ts:16` (`^[ \t]*#`), `words.ts:5` (`^\s{0,3}#{1,6}\s`) | El historial no descuenta como título `#Compra` y sí descuenta `# Compra`; el editor pinta los dos como título. |
+| Línea hecha `--` | `strikethrough.ts:14`                                                 | —                                                                                                               |
 
 Propuesta: un módulo `text/conventions.ts` con `WORD_RE`, `URL_RE`, `HEADING_RE`, `DONE_RE`, `isHeading()`, `isDone()`, usado por todos. De paso, corregir el comentario de `strikethrough.ts:8-9`, que dice que los títulos se pintan «en el rojo habitual», cuando el CSS (`editor.css:192-196`) les pone fondo y color normal.
 
@@ -166,7 +166,6 @@ Con la división de 1.2 son fáciles de escribir:
 
 ### 1.13. Accesibilidad (sin cambiar la funcionalidad)
 
-- Las tabs tienen `role="tab"`, pero ni `aria-controls`/`tabpanel` ni navegación con flechas dentro del `tablist` (patrón WAI-ARIA de pestañas).
 - Los overlays tienen `role="dialog"` y `aria-modal`, pero no retienen el foco: con Tab se sale al editor que queda debajo.
 - El `aria-label` del punto de estado es fijo («Estado del guardado»). Podría llevar el texto del estado (`describeStatus`).
 - El contraste de `--fg-dim` sobre `--bg` en tema claro es ~2,6:1 (tabs inactivas, marca, metadatos). Si se quiere mantener la estética, al menos subir el foco visible (`outline` de 1 px `--fg-dim`).

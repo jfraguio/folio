@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allTexts, joinDocument, splitDocument, TAB_COUNT, type Tab } from '../src/persistence/todoBlocks';
+import { allTexts, joinDocument, splitDocument, TAB_COUNT, type Tab } from '../src/persistence/folioFormat';
 
 /** Tab con texto y, opcionalmente, subtabs. */
 const T = (text: string, subs: string[] = []): Tab => ({ text, subs });
@@ -7,7 +7,7 @@ const doc = (tabs: Tab[], words: string[] = []) => ({ tabs, words });
 /** Atajo para documentos sin subtabs. */
 const plain = (...texts: string[]) => texts.map((t) => T(t));
 
-describe('todoBlocks', () => {
+describe('folioFormat', () => {
   it('un archivo vacío produce una sola tab vacía', () => {
     const d = splitDocument('');
     expect(d.tabs).toEqual([T('')]);
@@ -155,5 +155,41 @@ describe('todoBlocks', () => {
   it('un "-->" dentro del diccionario se escapa al escribir y se recupera al leer', () => {
     const d = splitDocument(joinDocument(doc(plain(''), ['a-->b'])));
     expect(d.words).toEqual(['a-->b']);
+  });
+
+  describe('contenido que parece estructura', () => {
+    it('una línea «[todo:tab N]» dentro del texto no se convierte en una tab al reabrir', () => {
+      const tabs = plain('Notas pegadas\n[todo:tab 2]\nsecreto');
+      const text = joinDocument(doc(tabs));
+      expect(text).toContain('\\[todo:tab 2]');
+      expect(splitDocument(text).tabs).toEqual(tabs);
+    });
+
+    it('una apertura de diccionario dentro del texto no se lee como bloque', () => {
+      const tabs = plain('Texto', 'fin\n<!-- todo:diccionario\nX\n-->');
+      expect(splitDocument(joinDocument(doc(tabs))).tabs).toEqual(tabs);
+    });
+
+    it('las líneas que ya empezaban por barra se escapan una vez más y vuelven igual', () => {
+      const tabs = plain('\\[todo:tab 2]\n\\\\[todo:tab 3]');
+      expect(splitDocument(joinDocument(doc(tabs))).tabs).toEqual(tabs);
+    });
+
+    it('ida y vuelta estable: split(join(split(x))) == split(x)', () => {
+      const samples = [
+        '',
+        'texto plano',
+        '[todo:tab 1]\nUno\n[todo:tab 2]\nDos',
+        'foo\n[todo:tab 2]\nbar',
+        '[todo:tab 3]\nsolo la tres',
+        '[todo:tab 1]\n\\[todo:tab 2]\n[todo:tab 1.1]\nsub',
+        '<!-- todo:diccionario\nno válida\n-->',
+        '[todo:tab 1]\nfin\n<!-- todo:diccionario\nX\n-->',
+      ];
+      for (const x of samples) {
+        const first = splitDocument(x);
+        expect(splitDocument(joinDocument(first))).toEqual(first);
+      }
+    });
   });
 });

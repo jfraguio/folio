@@ -16,7 +16,9 @@ body {
   line-height: var(--line-height);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  transition: background-color var(--ease), color var(--ease);
+  transition:
+    background-color var(--ease),
+    color var(--ease);
 }
 
 /* En móvil el alto real cambia con el teclado virtual: dvh sigue al viewport visible. */
@@ -89,7 +91,9 @@ input:focus-visible {
   color: var(--fg);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
-  transition: color var(--ease), opacity var(--ease);
+  transition:
+    color var(--ease),
+    opacity var(--ease);
 }
 
 @media (hover: hover) {
@@ -166,7 +170,9 @@ input:focus-visible {
   border-radius: 50%;
   background: var(--fg-dim);
   opacity: 0;
-  transition: opacity 300ms ease, background-color var(--ease);
+  transition:
+    opacity 300ms ease,
+    background-color var(--ease);
 }
 
 .status-dot[data-state='dirty']::after,

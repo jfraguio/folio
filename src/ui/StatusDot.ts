@@ -30,8 +30,11 @@ export class SaveStatus {
   }
 
   set(state: DotState, lastSaved?: number): void {
+    // No notifica si nada cambió (cada pulsación pasa por `dirty` → `dirty`).
+    const changed = state !== this.state || (lastSaved !== undefined && lastSaved !== this.lastSaved);
     this.state = state;
     if (lastSaved) this.lastSaved = lastSaved;
+    if (!changed) return;
     this.listeners.forEach((l) => l(state, lastSaved));
   }
 
@@ -68,6 +71,7 @@ export class StatusDot {
     if (lastSaved) this.lastSaved = lastSaved;
     this.root.dataset.state = state;
     this.refreshTip();
+    this.root.setAttribute('aria-label', describeStatus(state, this.lastSaved) || 'Estado del guardado');
   }
 
   private refreshTip(): void {

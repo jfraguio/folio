@@ -1,3 +1,5 @@
+import { LEGACY } from './legacyIds';
+
 export type Theme = 'light' | 'dark' | 'system';
 
 export interface Prefs {
@@ -14,9 +16,9 @@ const DEFAULTS: Prefs = {
 };
 
 const KEYS: Record<keyof Prefs, string> = {
-  theme: 'todo.theme',
-  spellEnabled: 'todo.spell.enabled',
-  zen: 'todo.zen',
+  theme: LEGACY.prefKeys.theme,
+  spellEnabled: LEGACY.prefKeys.spellEnabled,
+  zen: LEGACY.prefKeys.zen,
 };
 
 type Listener = <K extends keyof Prefs>(key: K, value: Prefs[K]) => void;
@@ -41,12 +43,6 @@ class PrefsStore {
     this.listeners.forEach((l) => l(key, value));
   }
 
-  toggle(key: { [K in keyof Prefs]: Prefs[K] extends boolean ? K : never }[keyof Prefs]): boolean {
-    const v = !this.get(key);
-    this.set(key, v);
-    return v;
-  }
-
   onChange(l: Listener): () => void {
     this.listeners.add(l);
     return () => this.listeners.delete(l);
@@ -68,8 +64,7 @@ const THEME_COLORS = { light: '#f5f4f0', dark: '#111111' } as const;
 
 /** Aplica el tema al documento y escucha cambios del sistema si procede. */
 export function applyTheme(theme: Theme): void {
-  const dark =
-    theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   // En móvil y PWA la barra de estado/navegador toma este color: debe acompañar al tema.
   document

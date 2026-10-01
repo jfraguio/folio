@@ -1,19 +1,14 @@
 import { RangeSetBuilder } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+import { DONE_RE, HEADING_RE } from '../text/conventions';
 
 /**
  * TO-DOs resueltos: una línea que empieza por "--" (tras espacios o tabulaciones
  * opcionales) se muestra tachada entera. El documento sigue siendo texto plano.
  *
- * Títulos: una línea que empieza por "#" (tras espacios o tabulaciones opcionales)
- * se muestra en el rojo habitual (el de las palabras erróneas).
+ * Títulos: una línea que empieza por "#" (tras espacios o tabulaciones opcionales) se resalta con
+ * fondo y color normal (ver `.cm-heading` en editor.css).
  */
-
-/** Línea resuelta: "--" tras espacios/tabs opcionales, delante de la primera palabra.
- *  No se tachan las que tienen más de dos guiones ("---", "-------": separadores). */
-const DONE_RE = /^[ \t]*--(?!-)/;
-/** Línea de título: "#" tras espacios/tabs opcionales. */
-const HEADING_RE = /^[ \t]*#/;
 
 const doneLine = Decoration.line({ class: 'cm-done' });
 /** El título es una decoración de línea: el fondo cubre toda la línea (.cm-line), a todo lo ancho. */

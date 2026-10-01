@@ -145,7 +145,8 @@ html[data-zen] .cm-editor:not(.cm-cursor-placed) .cm-content {
   caret-color: transparent;
 }
 
-.cm-editor .cm-cursor, .cm-editor .cm-dropCursor {
+.cm-editor .cm-cursor,
+.cm-editor .cm-dropCursor {
   border-left: 2px solid var(--fg);
 }
 
