@@ -248,28 +248,36 @@ test('copiar y cortar un enlace deja también HTML con <a href> (Teams, Outlook�
       return out;
     });
 
+  /**
+   * Selecciona la línea `n` entera: clic en ella, End y Shift+Home. No usa ⌘/Ctrl+↑: en CodeMirror
+   * solo es «inicio del documento» en Mac; en Linux no tiene binding y sube una línea conservando la
+   * columna, con lo que la selección empezaría a mitad del enlace.
+   */
+  const selectLine = async (n: number) => {
+    await page.locator('.cm-line').nth(n).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Shift+Home');
+  };
+
   // Copiar la línea del enlace: texto plano con la sintaxis (para pegar en folio) y HTML con el enlace.
-  await page.keyboard.press(`${Mod}+ArrowUp`);
-  await page.keyboard.press('Shift+End');
+  await selectLine(0);
   await page.keyboard.press(`${Mod}+c`);
   let clip = await clipboard();
   expect(clip['text/plain']).toBe('Mira [esta web](https://example.com) hoy');
   expect(clip['text/html']).toContain('Mira <a href="https://example.com/">esta web</a> hoy');
 
   // Sin enlaces, el portapapeles queda como siempre: solo texto plano.
-  await page.locator('.cm-line').nth(1).click();
-  await page.keyboard.press('End');
-  await page.keyboard.press('Shift+Home');
+  await selectLine(1);
   await page.keyboard.press(`${Mod}+c`);
   clip = await clipboard();
   expect(clip).toEqual({ 'text/plain': 'Sin enlaces' });
 
   // Cortar: mismo contenido, el texto desaparece y ⌘Z lo devuelve.
-  await page.keyboard.press(`${Mod}+ArrowUp`);
-  await page.keyboard.press('Shift+End');
+  await selectLine(0);
   await page.keyboard.press(`${Mod}+x`);
   clip = await clipboard();
-  expect(clip['text/html']).toContain('<a href="https://example.com/">esta web</a>');
+  expect(clip['text/plain']).toBe('Mira [esta web](https://example.com) hoy');
+  expect(clip['text/html']).toContain('Mira <a href="https://example.com/">esta web</a> hoy');
   await expect(page.locator('.cm-line').first()).toHaveText('');
   await page.keyboard.press(`${Mod}+z`);
   await expect(page.locator('.cm-line').first()).toHaveText('Mira esta web hoy');
