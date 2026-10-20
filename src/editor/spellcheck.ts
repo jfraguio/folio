@@ -2,7 +2,7 @@ import { Compartment, RangeSetBuilder, StateEffect, StateField } from '@codemirr
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import type { SpellService } from '../spell/SpellService';
 import type { PersonalDictionary } from '../persistence/dictionary';
-import { URL_RE, WORD_RE } from '../text/conventions';
+import { URL_RE, WORD_RE, findLinks } from '../text/conventions';
 
 const misspelled = Decoration.mark({ class: 'cm-misspelled' });
 const setMarks = StateEffect.define<DecorationSet>();
@@ -101,11 +101,12 @@ export function spellcheck(deps: SpellDeps) {
           const from = Math.max(0, r.from - margin);
           const to = Math.min(state.doc.length, r.to + margin);
           const text = state.doc.sliceString(from, to);
-          // Zonas que no se corrigen: URLs.
+          // Zonas que no se corrigen: URLs, sueltas o dentro de un enlace `[texto](url)`.
           const skip: { from: number; to: number }[] = [];
           URL_RE.lastIndex = 0;
           for (const m of text.matchAll(URL_RE))
             skip.push({ from: from + m.index!, to: from + m.index! + m[0].length });
+          for (const l of findLinks(text)) skip.push({ from: from + l.urlFrom, to: from + l.urlTo });
           WORD_RE.lastIndex = 0;
           for (const m of text.matchAll(WORD_RE)) {
             const wf = from + m.index!;

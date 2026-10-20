@@ -16,7 +16,7 @@ Principios:
 2. **El archivo es la verdad.** Un `.txt` legible por cualquier editor. No hay servidor ni cuenta.
 3. **Guardar no es tarea del usuario.** Guardado automático, borrador de emergencia, historial de versiones.
 4. **Nada interrumpe.** Solo aparecen diálogos cuando la decisión es inevitable. El resto son avisos de una línea que desaparecen solos.
-5. **Texto plano siempre.** No se interpreta Markdown. Hay tres convenciones visuales (títulos `#`, tareas hechas `--`, enlaces) que solo decoran, nunca transforman el texto.
+5. **Texto plano siempre.** No se interpreta Markdown (salvo la sintaxis de enlace `[texto](url)`, que solo se pinta). Hay tres convenciones visuales (títulos `#`, tareas hechas `--`, enlaces) que solo decoran, nunca transforman el texto.
 
 Idioma de la interfaz: **español**, salvo la pantalla de inicio (`OPEN`, `NEW`, `CONTINUE`), que está en inglés a propósito.
 
@@ -147,6 +147,7 @@ Todas son visuales. El archivo sigue siendo texto plano.
 | **Título** | La línea empieza por `#` (con espacios o tabuladores opcionales delante) | Fondo `--heading-bg` a todo lo ancho de la línea; texto en su color normal. Deja un **hueco de 7,5 px debajo** (relleno con el fondo recortado al contenido, así que se ve como un margen). |
 | **Tarea hecha** | La línea empieza por `--` pero no por `---` (con espacios o tabuladores opcionales) | **Toda la línea tachada** (línea de 1 px en `--fg`), texto en `--fg-dim`. Gana a «título» si coinciden las dos. `---` o más se consideran separadores y no se tachan. |
 | **Enlace** | `https?://…` o `www.…`, hasta un espacio o `< > " ' ( )` | Subrayado `--fg-faint` con separación de 2 px; con el ratón encima, subrayado `--fg`. Cursor de mano. El color del texto es `--fg`, así que un enlace nunca sale en rojo aunque el corrector lo marque. |
+| **Enlace Markdown** | `[texto](url)` en una línea: texto sin corchetes ni saltos; URL sin espacios ni paréntesis. Solo destinos `http(s)`, `mailto:`, `tel:` o sin esquema (se abre con `https://` delante); con cualquier otro esquema (`javascript:`, `data:`…) no es enlace | **Siempre plegado**: solo se ve el texto, con el aspecto de un enlace; corchetes y URL no se muestran nunca, tampoco con el cursor dentro. Al pasar el ratón, `title` con el destino. |
 | **Error ortográfico** | Palabra que Hunspell no reconoce (§3.8) | Texto en `--misspell`. **Sin subrayado.** |
 
 ### 2.5. Modo zen
@@ -165,6 +166,7 @@ Un modo de escritura concentrada que imita al editor Folio original. Se activa y
   - `-` justo detrás de otro `-` (y no de `--`) → los dos se convierten en **raya `—`**.
   - `"` → **`«`** al principio de palabra (inicio, espacio, salto, `( [ { — -`) y **`»`** en los demás casos.
   - Consecuencia: en zen, teclear `--` al principio de línea produce `—`, no una tarea hecha. Las líneas `--` ya existentes se siguen viendo tachadas.
+- **Contador de palabras** (solo en zen), en la **esquina inferior izquierda**: fijo a 1,1 rem de los bordes inferior e izquierdo (más la zona segura), en una fila de 22 px centrada en vertical con el punto de estado y el menú. Mismo estilo que la marca (0,72 rem, mayúsculas, `letter-spacing: 0.08em`, `--fg-dim`, opacidad 0,85 / 1), con cifras tabulares. Muestra solo el número, con separador de miles (`aria-label`: «Palabras»). Cuenta las palabras de la **tab o subtab abierta** con el mismo criterio que el historial: sin títulos ni separadores, y de un enlace `[texto](url)` solo su texto. Se recalcula como mucho una vez por frame.
 
 ### 2.6. Paneles (menú, diálogos, diccionario, historial)
 
@@ -194,7 +196,7 @@ Un modo de escritura concentrada que imita al editor Folio original. Se activa y
 Se detecta **pantalla estrecha** con `max-width: 700px` y **táctil** con `pointer: coarse` (`html[data-touch]`).
 
 - **Barra de tabs**: 52 px más la zona segura superior; relleno de 8 px más la zona segura. Tabs de tamaño natural (máximo 42 vw), 36 px de alto; relleno de 10 px y separación de 14 px. Imán de scroll al centro de cada tab. El gesto horizontal es de la barra y el vertical, del editor.
-- La **marca se oculta**. El **contador de tareas hechas** baja a la **esquina inferior izquierda**, simétrico al grupo de estado y menú.
+- La **marca se oculta**. El **contador de tareas hechas** baja a la **esquina inferior izquierda**, simétrico al grupo de estado y menú; en zen va delante del contador de palabras, separado 0,8 rem.
 - Paneles como hojas inferiores (§2.6). Avisos más arriba (§2.7).
 - **Teclado virtual**: folio nunca lo abre por su cuenta.
   - Al abrir un archivo no se enfoca el editor.
@@ -336,7 +338,15 @@ Pensado para archivos en iCloud Drive u otras carpetas sincronizadas.
 
 - **Títulos** (`#…`), **tareas hechas** (`--…`) y **enlaces**: ver §2.4.
 - **Contador de tareas hechas**: número de líneas `--` de la tab o subtab abierta (§2.3).
-- **Enlaces**: **⌘/Ctrl+clic** abre la URL en una pestaña nueva (`noopener`). Las que empiezan por `www.` se abren con `https://` delante. Un clic simple solo coloca el cursor. En táctil, ver §2.9.
+- **Enlaces**: **⌘/Ctrl+clic** abre la URL (o el destino de un enlace `[texto](url)`) en una pestaña nueva (`noopener`). Las que empiezan por `www.` se abren con `https://` delante. Un clic simple solo coloca el cursor. En táctil, ver §2.9.
+- **Pegar una URL sobre una selección** la convierte en enlace: `palabra` → `[palabra](url)`, en una sola transacción (⌘Z la deshace). El portapapeles debe ser solo una URL (`http(s)://…`, `www.…` o `mailto:…`, con espacios en los bordes); los paréntesis de la URL se codifican (`%28`, `%29`). Los espacios de los bordes de la selección quedan fuera del enlace y el cursor queda detrás, con el enlace plegado. Si la selección cae dentro del texto de un enlace, se le cambia la URL (es la forma de editar el destino, que no se ve). Con varias selecciones se enlaza cada una. Pegado normal si no hay selección o si esta ocupa varias líneas, tiene corchetes o pisa un enlace a medias.
+- **Copiar o cortar con enlaces** deja en el portapapeles dos versiones: **texto plano** con la sintaxis (`Mira [esta web](url) hoy`, para que al pegar en folio el enlace se conserve) y **HTML** con cada enlace como `<a href>` (`Mira <a href="url">esta web</a> hoy`), que es la que usan Teams, Outlook, Word, Gmail o Slack para pegarlo clicable. El HTML no lleva estilos (toma los del destino); los saltos de línea van como `<br>`, y los tabuladores y espacios seguidos se conservan. Las URLs sueltas también van como enlace. Un enlace copiado a medias va como enlace con ese trozo de texto, también en texto plano (`[esta](url)`). Si lo copiado no tiene enlaces, el portapapeles queda como siempre (solo texto plano). Lo demás es lo de CodeMirror: sin selección se copia la línea entera, al cortar se borra (⌘Z lo devuelve) y varias selecciones se unen con saltos de línea.
+- **La sintaxis oculta de un enlace está protegida**: el texto del enlace se edita como una palabra más y el enlace nunca queda roto (con la sintaxis a medias, que se vería en crudo).
+  - **Cursor**: no puede quedarse dentro de `[` ni de `](url)`. A los lados del enlace queda siempre fuera (antes del `[` o después del `)`), así que cada pulsación de flecha avanza una letra visible, y escribir en esos bordes escribe fuera del enlace (como en Google Docs). Un clic en un borde deja el cursor fuera.
+  - **Retroceso** justo detrás del enlace quita la última letra de su texto (no el `)` oculto), y con el cursor justo delante, la letra anterior al enlace. **Suprimir**, al revés. **⌥⌫ / Ctrl+⌫** (y hacia delante) borran la última o la primera palabra del texto del enlace.
+  - Si se borra todo el texto del enlace (letra a letra, por palabras o seleccionándolo), se borra el enlace entero.
+  - Una selección que pisa el enlace a medias borra (o sustituye) lo que se ve y conserva la sintaxis: lo que quede del texto sigue siendo enlace.
+  - Deshacer, rehacer y la recarga desde el disco no pasan por esta protección.
 - La tecla **Tab** inserta un tabulador. Deshacer y rehacer funcionan con los atajos estándar de CodeMirror (⌘Z / ⌘⇧Z o Ctrl+Z / Ctrl+Y).
 
 ### 3.8. Corrector ortográfico
@@ -349,7 +359,7 @@ Pensado para archivos en iCloud Drive u otras carpetas sincronizadas.
   - la palabra en la que está el cursor, mientras siga ahí;
   - palabras de una letra;
   - palabras con dígitos;
-  - fragmentos de URL;
+  - fragmentos de URL (también la URL de un enlace `[texto](url)`; su texto sí se revisa);
   - palabras del diccionario personal.
 - Palabra = letras y marcas diacríticas, con apóstrofo o guion internos.
 - Al desactivarlo desaparecen las marcas y no se activa el corrector nativo.
@@ -467,9 +477,9 @@ Pantalla completa, tema y zen no tienen atajo: solo el menú.
 
 ### 3.18. Lo que folio no hace, a propósito
 
-- No interpreta Markdown (no hay negritas, listas ni encabezados reales).
+- No interpreta Markdown (no hay negritas, listas ni encabezados reales); solo pinta los enlaces `[texto](url)`.
 - No centra el texto al escribir (sin «typewriter scrolling»).
-- No tiene contador de palabras en pantalla (solo en el historial).
+- Fuera del modo zen no tiene contador de palabras en pantalla (solo en el historial).
 - No sugiere correcciones ni corrige en otros idiomas.
 - No tiene diálogo de conflictos: el disco más reciente gana.
 - No restaura versiones del historial.

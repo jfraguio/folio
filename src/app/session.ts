@@ -7,6 +7,7 @@ import { createEditor, createEditorState } from '../editor/createEditor';
 import { TabStates } from './TabStates';
 import { spellcheck, spellCompartment, wordAt } from '../editor/spellcheck';
 import { countDone } from '../editor/strikethrough';
+import { countWords, formatNumber } from '../text/words';
 import { zen, zenCompartment } from '../editor/zen';
 import { Autosave } from '../persistence/autosave';
 import { FileWatcher } from '../persistence/fileWatcher';
@@ -232,9 +233,9 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     const updateListener = EditorView.updateListener.of((u) => {
       if (!u.docChanged) return;
       // Nada de O(n) por pulsación: el modelo se sincroniza al guardar o cambiar de tab, el título
-      // de la tab activa se recalcula con su primera línea y el contador se agrupa en un frame.
+      // de la tab activa se recalcula con su primera línea y los contadores se agrupan en un frame.
       tabBar.refreshActive(firstLine());
-      scheduleDone();
+      scheduleCounters();
       markChanged();
     });
     /** Config del editor: se relee en cada estado nuevo para que tome el corrector/zen actuales. */
@@ -270,7 +271,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       // Al estrenar una tab el cursor arranca al final (y el focus mode queda colocado, como antes).
       if (isNew) view.dispatch({ selection: { anchor: view.state.doc.length } });
       tabBar.setActive(t, s);
-      refreshDone();
+      refreshCounters();
       if (keepFocus) view.focus();
     }
 
@@ -421,24 +422,31 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       disposers.push(() => brand.removeAttribute('title'));
     }
 
-    // Contador de TO-DOs resueltos (líneas tachadas) de la tab abierta, en rojo junto a la marca.
-    const doneCount = brand ? el('span', { class: 'done-count', attrs: { 'aria-label': 'TO-DOs resueltos' } }) : null;
-    if (brand && doneCount) brand.before(doneCount);
-    if (doneCount) disposers.push(() => doneCount.remove());
-    const refreshDone = () => {
-      if (!doneCount) return;
-      const n = countDone(view.state.doc.toString());
-      doneCount.textContent = n > 0 ? String(n) : '';
+    // Contadores de la tab abierta, en la esquina inferior izquierda (base.css):
+    // - TO-DOs resueltos (líneas tachadas), en rojo. En escritorio sale de la esquina con
+    //   `position: fixed` y se coloca arriba, junto a la marca; en pantallas estrechas se queda aquí.
+    // - Palabras (mismo recuento que el historial: sin encabezados ni separadores). Solo en modo zen.
+    const doneCount = el('span', { class: 'done-count', attrs: { 'aria-label': 'TO-DOs resueltos' } });
+    const wordCount = el('span', { class: 'word-count', attrs: { 'aria-label': 'Palabras' } });
+    const cornerLeft = el('div', { class: 'corner-left' }, doneCount, wordCount);
+    root.appendChild(cornerLeft);
+    disposers.push(() => cornerLeft.remove());
+    const refreshCounters = () => {
+      const text = view.state.doc.toString();
+      const done = countDone(text);
+      doneCount.textContent = done > 0 ? String(done) : '';
+      const words = countWords(text);
+      wordCount.textContent = formatNumber(words);
     };
-    refreshDone();
-    // El contador de TO-DOs se recalcula como mucho una vez por frame, no en cada pulsación.
-    let doneScheduled = false;
-    const scheduleDone = () => {
-      if (doneScheduled) return;
-      doneScheduled = true;
+    refreshCounters();
+    // Los contadores (TO-DOs y palabras) se recalculan como mucho una vez por frame, no en cada pulsación.
+    let countersScheduled = false;
+    const scheduleCounters = () => {
+      if (countersScheduled) return;
+      countersScheduled = true;
       requestAnimationFrame(() => {
-        doneScheduled = false;
-        refreshDone();
+        countersScheduled = false;
+        refreshCounters();
       });
     };
 
@@ -516,6 +524,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       }).state;
       states.set(tabs[activeTab]!, activeSub, state);
       tabBar.setActive(activeTab, activeSub);
+      refreshCounters();
       // Si el diccionario personal cambió, se invalidan solo las palabras quitadas (sin recargar
       // Hunspell) y se re-escanea.
       const now = new Set(dictionary.list());

@@ -3,6 +3,7 @@ import { EditorView, drawSelection, highlightSpecialChars, keymap } from '@codem
 import { defaultKeymap, history, historyKeymap, insertTab } from '@codemirror/commands';
 import { spellCompartment } from './spellcheck';
 import { links } from './links';
+import { richCopy } from './copy';
 import { strikethrough } from './strikethrough';
 import { zen, zenCompartment } from './zen';
 
@@ -35,6 +36,7 @@ export function editorExtensions(o: EditorConfig = {}): Extension[] {
     EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
     // Sin interpretación de Markdown: el texto se muestra tal cual (plano).
     links(),
+    richCopy(),
     strikethrough(),
     EditorState.tabSize.of(4),
     keymap.of([{ key: 'Tab', run: insertTab }, ...defaultKeymap, ...historyKeymap]),

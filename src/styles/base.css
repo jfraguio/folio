@@ -231,7 +231,42 @@ input:focus-visible {
   z-index: 5;
 }
 
-/* Contador de TO-DOs resueltos, en rojo, a la izquierda de la marca. */
+/* ---------- Esquina inferior izquierda: contadores ----------
+   Simétrica a .corner-right: mismo margen al borde y la misma fila de 22px, así que sus textos
+   quedan centrados en vertical con el punto de estado y el menú. */
+
+.corner-left {
+  position: fixed;
+  left: calc(1.1rem + var(--safe-left));
+  bottom: calc(1.1rem + var(--safe-bottom));
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  z-index: 5;
+}
+
+/* Palabras de la tab abierta: solo en modo zen, con el cuerpo y el color de la marca «FOLIO». */
+.word-count {
+  display: none;
+  height: 22px;
+  line-height: 22px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--fg-dim);
+  opacity: var(--chrome-opacity-hover);
+  user-select: none;
+}
+
+html[data-zen] .word-count {
+  display: block;
+}
+
+/* Contador de TO-DOs resueltos, en rojo, a la izquierda de la marca. Vive en .corner-left, pero
+   en escritorio sale de ella (fixed respecto a la ventana) y sube junto a la marca. */
 .done-count {
   position: fixed;
   top: calc(1.1rem + var(--safe-top));
@@ -249,17 +284,19 @@ input:focus-visible {
 }
 
 /* En pantallas estrechas la barra superior es toda para las tabs: la marca se retira y el
-   contador baja a la esquina inferior izquierda, simétrico al estado y al menú. */
+   contador de TO-DOs se queda en la esquina inferior izquierda (delante del de palabras, en zen),
+   simétrico al estado y al menú. */
 @media (max-width: 700px) {
   .brand {
     display: none;
   }
 
   .done-count {
-    top: auto;
-    right: auto;
-    left: calc(1.1rem + var(--safe-left));
-    bottom: calc(1.1rem + var(--safe-bottom));
+    position: static;
+  }
+
+  .done-count:empty {
+    display: none;
   }
 }
 
