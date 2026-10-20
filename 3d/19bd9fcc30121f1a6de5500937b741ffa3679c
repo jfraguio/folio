@@ -1,0 +1,27 @@
+specs.md
+  s_234f3f6758c8af::t_31e795d5372620 19,150,169,199,341-349,362,480,482
+src/editor/links.ts
+  s_234f3f6758c8af::t_9514cf8628bf7d 1-23,26-36,39-42,46,48-58,60-84,87,90-280,283-286,289,291,299-361,377,407-415,421,423,426,432-444
+tests/copy.test.ts
+  s_234f3f6758c8af::t_64597b90458c66 1-93
+tests/e2e/folio.spec.ts
+  s_234f3f6758c8af::t_01b22c7e47ebb5 147-277
+tests/links.test.ts
+  s_234f3f6758c8af::t_ef35c72e312dd0 1-194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3d19bd9fcc30121f1a6de5500937b741ffa3679c",
+  "prompts": {},
+  "sessions": {
+    "s_234f3f6758c8af": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ea7dd10fbffe38TpfgcHkYeDKc",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
