@@ -5,7 +5,6 @@ export const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test
 /** Combinaciones: "Mod" es ⌘ en Mac y Ctrl en el resto. */
 export const SHORTCUTS: Record<string, string> = {
   'Mod-k': 'menu',
-  'Mod-Shift-d': 'dictionary.add',
   'Mod-s': 'save',
   // Mod-1 … Mod-0: tabs 1 … 10. Mod-Alt-1 … Mod-Alt-0: subtabs 1 … 10 de la tab abierta. (Con
   // Shift no: en macOS ⌘⇧3, ⌘⇧4 y ⌘⇧5 son las capturas de pantalla y no llegan al navegador.)

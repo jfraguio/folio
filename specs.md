@@ -168,7 +168,7 @@ Un modo de escritura concentrada que imita al editor Folio original. Se activa y
   - Consecuencia: en zen, teclear `--` al principio de línea produce `—`, no una tarea hecha. Las líneas `--` ya existentes se siguen viendo tachadas.
 - **Contador de palabras** (solo en zen), en la **esquina inferior izquierda**: fijo a 1,1 rem de los bordes inferior e izquierdo (más la zona segura), en una fila de 22 px centrada en vertical con el punto de estado y el menú. Mismo estilo que la marca (0,72 rem, mayúsculas, `letter-spacing: 0.08em`, `--fg-dim`, opacidad 0,85 / 1), con cifras tabulares. Muestra solo el número, con separador de miles (`aria-label`: «Palabras»). Cuenta las palabras de la **tab o subtab abierta** con el mismo criterio que el historial: sin títulos ni separadores, y de un enlace `[texto](url)` solo su texto. Se recalcula como mucho una vez por frame.
 
-### 2.6. Paneles (menú, diálogos, diccionario, historial)
+### 2.6. Paneles (menú, diálogos, diccionario, historial, instrucciones)
 
 - **Velo**: `--overlay-bg` a pantalla completa, `z-index: 10`, fundido de entrada de 120 ms. El panel se alinea arriba, a **14 vh** del borde (4 vh los paneles altos).
 - **Panel**: `min(34rem, 92vw)` de ancho, alto máximo 70 vh (92 vh los altos), fondo `--panel-bg`, borde de 1 px `--panel-border`, **radio de 8 px**, sombra `0 12px 40px rgba(0,0,0,.08)`, 0,9 rem.
@@ -282,7 +282,7 @@ Reglas:
 | `title` del botón | «Tab N: ‹nombre›», o «Tab N» si está vacía | «Subpestaña M de la tab N[: ‹nombre›]» |
 | Dónde | En la barra, en orden | Detrás de todas las principales y del separador. Solo las de la tab abierta. |
 | Abrir | Clic, **⌘/Ctrl+1…9, 0** (0 = la 10), o un dígito con el menú abierto | Clic o **⌘⌥/Ctrl+Alt+1…9, 0** |
-| Crear | Menú **«Crear pestaña»**: solo desde una tab principal y con menos de 10. Se añade al final y se abre. | Menú **«Crear subpestaña»**: solo desde una tab principal que tenga menos de 10. Se añade al final y se abre. |
+| Crear | Menú **«Crear pestaña»** (en «Más…»): solo desde una tab principal y con menos de 10. Se añade al final y se abre. | Menú **«Crear subpestaña»**: solo desde una tab principal que tenga menos de 10. Se añade al final y se abre. |
 | Eliminar | Menú **«Eliminar pestaña N»** (la abierta): solo si está vacía, sus subtabs están todas vacías y no es la única. Se abre la que ocupa su sitio (o la última). | Menú **«Eliminar subpestaña M»**: solo si está vacía. Se abre la que ocupa su sitio, o la tab madre si no quedan. |
 
 - **Nunca se borra texto**: no hay forma de eliminar una tab o subtab con contenido.
@@ -351,7 +351,7 @@ Pensado para archivos en iCloud Drive u otras carpetas sincronizadas.
 
 ### 3.8. Corrector ortográfico
 
-- **Activado por defecto.** Se activa o desactiva desde el menú y se recuerda.
+- **Activado por defecto.** Se activa o desactiva desde el menú (en **«Más…»**, §3.10) y se recuerda.
 - Solo **español** (Hunspell, `dictionary-es`), en un **Web Worker**. El diccionario se descarga la primera vez que se necesita y queda en caché. Si falla: «No se pudo cargar el diccionario ortográfico.».
 - **Solo marca**, nunca sugiere: las palabras desconocidas se ven en rojo apagado (§2.4).
 - Se revisa la parte visible de la tab abierta con un margen de ±2.000 caracteres, 400 ms después del último cambio, movimiento del cursor o scroll.
@@ -367,8 +367,8 @@ Pensado para archivos en iCloud Drive u otras carpetas sincronizadas.
 ### 3.9. Diccionario personal
 
 - Conjunto de palabras aceptadas que **distingue mayúsculas**. Se guarda **dentro del propio archivo** (§3.2) y viaja con él.
-- **Añadir**: **⌘/Ctrl+⇧+D** con el cursor en una palabra, o desde el menú con **«Añadir «palabra» al diccionario»** (solo con el corrector activado y el cursor sobre una palabra). Aviso: «‹palabra› añadida al diccionario.».
-- **Gestionar**: menú **«Diccionario»** (solo con el corrector activado). Panel alto con la cabecera «Diccionario personal · pulsa una palabra para quitarla» y las palabras en **píldoras** por orden alfabético español. Pulsar una la quita; con el ratón encima se ve tachada en `--err`, y en táctil llevan una «×». Vacío: «El diccionario personal está vacío.». Botón **[Cerrar]**.
+- **Añadir**: desde el menú con **«Añadir «palabra» al diccionario»** (solo con el corrector activado y el cursor sobre una palabra). No tiene atajo. Aviso: «‹palabra› añadida al diccionario.».
+- **Gestionar**: menú **«Diccionario»** (en «Más…»; solo con el corrector activado). Panel alto con la cabecera «Diccionario personal · pulsa una palabra para quitarla» y las palabras en **píldoras** por orden alfabético español. Pulsar una la quita; con el ratón encima se ve tachada en `--err`, y en táctil llevan una «×». Vacío: «El diccionario personal está vacío.». Botón **[Cerrar]**.
 
 ### 3.10. Menú
 
@@ -376,7 +376,7 @@ Pensado para archivos en iCloud Drive u otras carpetas sincronizadas.
 - Es una lista sin buscador. **↑/↓** mueven la selección (saltando las filas informativas), **Enter** ejecuta, **Esc** o un clic fuera cierran. Con ratón, pasar por encima selecciona la fila. Al abrirse, la primera fila seleccionable está activa.
 - **Un dígito** (1…9, 0) con el menú abierto cierra el menú y abre esa tab principal, si existe. En modo zen, además, **desactiva el zen**.
 - Al cerrar, en escritorio el foco vuelve al texto.
-- **Entradas, en este orden** (cada una solo si se cumple su condición):
+- **Entradas, en este orden** (cada una solo si se cumple su condición). Las marcadas como *secundarias* no se ven de entrada: si hay alguna disponible, la última fila es **«Más…»**; al elegirla el menú sigue abierto, esa fila se sustituye por las secundarias (en el orden de la tabla) y la primera de ellas queda activa.
 
 | # | Entrada | Condición | Efecto |
 |---|---|---|---|
@@ -384,17 +384,18 @@ Pensado para archivos en iCloud Drive u otras carpetas sincronizadas.
 | 1 | **Modo zen** / **Desactivar modo zen** | Siempre | Activa o desactiva el zen (§2.5) |
 | 2 | **Tema oscuro** / **Tema claro** | Siempre | Cambia al otro tema y lo fija (deja de seguir al sistema) |
 | 3 | **Pantalla completa** / **Salir de pantalla completa** | El navegador tiene la API (no en iPhone) | Si falla: «El navegador no permite la pantalla completa aquí.» |
-| 4 | **Desactivar corrector** / **Activar corrector** | Siempre | §3.8 |
-| 5 | **Diccionario** | Corrector activado | §3.9 |
-| 6 | **Crear pestaña** | En una tab principal y con < 10 tabs | §3.3 |
-| 7 | **Crear subpestaña** | En una tab principal con < 10 subtabs | §3.3 |
-| 8 | **Eliminar pestaña N** / **Eliminar subpestaña M** | La abierta se puede eliminar | §3.3 |
-| 9 | **Historial** | No en modo degradado | §3.11 |
-| 10 | **Añadir «palabra» al diccionario** `⌘⇧D` | Corrector activado y cursor sobre una palabra | §3.9 |
-| 11 | **Descargar el .txt** | Modo degradado | Descarga el documento como `‹nombre›.txt` |
-| 12 | **Reintentar guardado** | Tras un error de guardado | §3.4 |
+| 4 | **Desactivar corrector** / **Activar corrector** (secundaria) | Siempre | §3.8 |
+| 5 | **Diccionario** (secundaria) | Corrector activado | §3.9 |
+| 6 | **Crear pestaña** (secundaria) | En una tab principal y con < 10 tabs | §3.3 |
+| 7 | **Crear subpestaña** (secundaria) | En una tab principal con < 10 subtabs | §3.3 |
+| 8 | **Eliminar pestaña N** / **Eliminar subpestaña M** (secundaria) | La abierta se puede eliminar | §3.3 |
+| 9 | **Historial** (secundaria) | No en modo degradado | §3.11 |
+| 10 | **Instrucciones** (secundaria) | Siempre | §3.19 |
+| 11 | **Añadir «palabra» al diccionario** | Corrector activado y cursor sobre una palabra | §3.9 |
+| 12 | **Descargar el .txt** | Modo degradado | Descarga el documento como `‹nombre›.txt` |
+| 13 | **Reintentar guardado** | Tras un error de guardado | §3.4 |
 
-  En escritorio, a la derecha de cada entrada se muestra su atajo si lo tiene; hoy solo lo tiene la 10.
+  En escritorio, a la derecha de cada entrada se muestra su atajo si lo tiene; hoy ninguna lo tiene.
 
 ### 3.11. Historial de versiones
 
@@ -458,7 +459,6 @@ El archivo abierto, la tab activa y el tamaño de letra no son preferencias.
 | `Mod+K` | Abrir o cerrar el menú |
 | `Mod+1` … `Mod+9`, `Mod+0` | Tab principal 1…10 |
 | `Mod+Alt+1` … `Mod+Alt+0` | Subtab 1…10 de la tab abierta (no con ⇧, porque ⌘⇧3/4/5 son capturas de pantalla en macOS) |
-| `Mod+Shift+D` | Añadir la palabra del cursor al diccionario |
 | `Mod+S` | Guardar ahora (descargar en modo degradado) |
 | `Esc` | Cerrar el panel abierto |
 | `1`…`0` con el menú abierto | Ir a esa tab principal |
@@ -485,6 +485,16 @@ Pantalla completa, tema y zen no tienen atajo: solo el menú.
 - No restaura versiones del historial.
 - No cambia el tamaño de letra.
 - No tiene botones en la barra de tabs para crear, cerrar o quitar.
+
+### 3.19. Instrucciones
+
+- Menú **«Más…» › «Instrucciones»**. Panel alto de solo lectura con la cabecera «Instrucciones» y el pie **[Cerrar]**. En escritorio recibe el foco para desplazarse con el teclado.
+- Contenido, en bloques con título tenue en mayúsculas:
+  - **Escribir**: «Un único archivo .txt» y las convenciones del texto, cada una con una **muestra pintada igual que en el editor** y una explicación corta: «# marca un título», «-- tacha tarea» y «[Ejemplo](https://) crea un enlace».
+  - **Pestañas**: «Hasta 10 pestañas, con 10 subpestañas cada una» y «Sólo se pueden eliminar pestañas vacías».
+  - **Atajos** (no en táctil): menú, tabs, subtabs, dígito con el menú abierto, guardar (o descargar en modo degradado) y Esc. Se leen de la tabla de atajos, así que muestran ⌘/⌥ en Mac y Ctrl/Alt en el resto.
+  - **Zen**: «Modo literario: …» (columna centrada, solo se ilumina la línea que se escribe, raya y comillas « »).
+  - **Historial** (no en modo degradado): una copia cada hora, que se descarga desde «Más…» › «Historial».
 
 ---
 

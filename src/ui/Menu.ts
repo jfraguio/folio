@@ -13,11 +13,20 @@ export interface MenuOptions {
   items: MenuItem[];
   onSelect: (item: MenuItem) => void;
   /**
+   * Entradas secundarias: no se ven de entrada. Si hay alguna, al final de la lista aparece «Más…»;
+   * al elegirla, el menú sigue abierto y esa fila se sustituye por ellas.
+   */
+  more?: MenuItem[];
+  /**
    * Teclas interceptadas con el menú abierto (antes del buscador).
    * Si devuelve true, el menú se cierra y la tecla no llega al input.
    */
   onKey?: (e: KeyboardEvent) => boolean;
 }
+
+/** Etiqueta de la fila que despliega las entradas secundarias (`MenuOptions.more`). */
+export const MORE_LABEL = 'Más…';
+const MORE_ID = '__more';
 
 let current: { close: () => void } | null = null;
 
@@ -107,7 +116,7 @@ export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
   const list = el('ul', { class: 'panel__list', tabIndex: -1, attrs: { role: 'listbox' } });
   const panel = el('div', { class: 'panel' }, list);
 
-  const filtered: MenuItem[] = o.items;
+  const filtered: MenuItem[] = o.more?.length ? [...o.items, { id: MORE_ID, label: MORE_LABEL }] : [...o.items];
   const selectable = (i: number) => filtered[i] !== undefined && !filtered[i]!.info;
   /** Siguiente fila seleccionable a partir de `from` en la dirección `dir`, o `from` si no hay. */
   const step = (from: number, dir: 1 | -1) => {
@@ -156,6 +165,15 @@ export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
   };
 
   const select = (item: MenuItem) => {
+    // «Más…» no cierra el menú: despliega en su sitio las entradas secundarias y activa la primera.
+    if (item.id === MORE_ID) {
+      const i = filtered.indexOf(item);
+      filtered.splice(i, 1, ...(o.more ?? []));
+      active = selectable(i) ? i : step(i, 1);
+      render();
+      list.focus();
+      return;
+    }
     handle.close();
     o.onSelect(item);
   };

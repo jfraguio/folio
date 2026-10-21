@@ -282,7 +282,70 @@
   padding: 0.25rem 0.7rem;
 }
 
-/* ---------- Paneles altos (diccionario, historial) ---------- */
+/* ---------- Instrucciones ---------- */
+
+.help {
+  padding: 0.2rem 1rem 1rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  outline: none;
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+.help__title {
+  margin: 0.9rem 0 0.45rem;
+  font-size: 0.72rem;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-dim);
+}
+
+.help__text {
+  margin: 0 0 0.5rem;
+}
+
+/* Muestra (o atajo) a la izquierda, en una columna de ancho fijo; la explicación a la derecha. */
+.help__row {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.2rem 0;
+}
+
+.help__key {
+  flex: none;
+  width: 10.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Las muestras copian la decoración del editor (editor.css): el usuario ve lo que verá al escribir. */
+.help__sample--heading {
+  background: var(--heading-bg);
+  padding: 0 0.3rem;
+}
+
+.help__sample--done {
+  text-decoration: line-through;
+  text-decoration-color: var(--fg);
+  text-decoration-thickness: 1px;
+  color: var(--fg-dim);
+}
+
+.help__sample--link {
+  text-decoration: underline;
+  text-decoration-color: var(--fg-faint);
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 700px) {
+  .help__key {
+    width: 8.5rem;
+  }
+}
+
+/* ---------- Paneles altos (diccionario, historial, instrucciones) ---------- */
 
 .overlay--tall {
   padding-top: 4vh;

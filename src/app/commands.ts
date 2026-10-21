@@ -6,6 +6,8 @@ export interface Command {
   when?: () => boolean;
   /** Nunca aparece en el menú (solo accesible por atajo o internamente). */
   hidden?: boolean;
+  /** En el menú no se ve de entrada: aparece al elegir «Más…». */
+  more?: boolean;
   run: () => void | Promise<void>;
 }
 

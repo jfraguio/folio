@@ -82,7 +82,7 @@ Propuesta de módulos (sin cambiar el comportamiento):
 ### 1.5. Comandos y atajos
 
 - **AltGr (hallazgo #2).** `comboOf` (`shortcuts.ts:20-33`) trata Ctrl+Alt como `Mod-Alt`. En Windows, AltGr genera `ctrlKey && altKey`, así que AltGr+2 (`@`), AltGr+3 (`#`), AltGr+1 (`|`) y AltGr+4 (`~`) en teclado español se interpretan como «subtab 2/3/1/4» y se cancelan con `preventDefault`. Solución: ignorar el evento si `e.getModifierState('AltGraph')` y, fuera de Mac, no aceptar `Mod-Alt-dígito` cuando `e.key` es un carácter imprimible distinto del dígito. Añadir un test.
-- `CommandRegistry.run` (`commands.ts:29-34`) no comprueba `when()`. Por atajo se pueden ejecutar comandos que el menú no ofrecería: por ejemplo, ⌘⇧D añade la palabra al diccionario con el corrector desactivado. Propuesta: `run(id, { force })`, que respete `when` por defecto.
+- `CommandRegistry.run` (`commands.ts:29-34`) no comprueba `when()`. Por atajo se pueden ejecutar comandos que el menú no ofrecería (el ejemplo era ⌘⇧D, que añadía la palabra al diccionario con el corrector desactivado; ese atajo ya no existe, así que hoy no hay ningún caso, pero el riesgo vuelve con el próximo atajo con `when`). Propuesta: `run(id, { force })`, que respete `when` por defecto.
 - `Command.shortcut` nunca se usa (todo sale de `SHORTCUTS`), y `prettyShortcut` conserva casos de `=`/`-` de los atajos de tamaño de letra retirados. Se puede simplificar.
 - Los atajos globales siguen activos con un diálogo abierto (⌘1 cambia de tab por detrás del historial). Conviene ignorarlos mientras haya un overlay, salvo ⌘K y ⌘S.
 

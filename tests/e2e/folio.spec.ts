@@ -61,16 +61,40 @@ async function createFile(page: Page): Promise<void> {
   await page.waitForSelector('.cm-editor');
 }
 
-/** Ejecuta una opción del menú por su etiqueta exacta (teclado, sin depender del hover). */
+/** Pulsa la fila del menú abierto con esa etiqueta exacta (teclado, sin depender del hover). */
+async function pickMenuItem(page: Page, label: string): Promise<void> {
+  const labels = await page.locator('.panel__item .panel__label').allTextContents();
+  const activeIdx = await page
+    .locator('.panel__item')
+    .evaluateAll((els) => els.findIndex((e) => e.classList.contains('panel__item--active')));
+  const idx = labels.indexOf(label);
+  expect(idx, `el menú no ofrece «${label}»`).toBeGreaterThanOrEqual(0);
+  for (let i = activeIdx; i < idx; i++) await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+}
+
+/** Ejecuta una opción del menú por su etiqueta exacta; si no está a la vista, la busca en «Más…». */
 async function runMenu(page: Page, label: string): Promise<void> {
   await page.keyboard.press(`${Mod}+k`);
   await page.waitForSelector('.panel__item');
   const labels = await page.locator('.panel__item .panel__label').allTextContents();
-  const idx = labels.indexOf(label);
-  expect(idx, `el menú no ofrece «${label}»`).toBeGreaterThanOrEqual(0);
-  for (let i = 0; i < idx; i++) await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
+  if (!labels.includes(label) && labels.includes('Más…')) {
+    await pickMenuItem(page, 'Más…');
+    await expect(page.locator('.panel__item .panel__label', { hasText: 'Más…' })).toHaveCount(0);
+  }
+  await pickMenuItem(page, label);
   await page.waitForTimeout(100);
+}
+
+/** Abre el menú, despliega «Más…» si está y devuelve todas las etiquetas (el menú queda abierto). */
+async function allMenuLabels(page: Page): Promise<string[]> {
+  await page.keyboard.press(`${Mod}+k`);
+  await page.waitForSelector('.panel__item');
+  const labels = await page.locator('.panel__item .panel__label').allTextContents();
+  if (!labels.includes('Más…')) return labels;
+  await pickMenuItem(page, 'Más…');
+  await expect(page.locator('.panel__item .panel__label', { hasText: 'Más…' })).toHaveCount(0);
+  return page.locator('.panel__item .panel__label').allTextContents();
 }
 
 test('nuevo archivo: escribir, autosave, tabs y undo aislado por tab', async ({ page }) => {
@@ -113,28 +137,72 @@ test('el menú refleja el estado y el corrector se activa/desactiva', async ({ p
   await page.locator('.cm-content').click();
   await page.keyboard.type('Compra');
 
-  await page.keyboard.press(`${Mod}+k`);
-  await page.waitForSelector('.panel__item');
-  let labels = await page.locator('.panel__item .panel__label').allTextContents();
+  let labels = await allMenuLabels(page);
   expect(labels).toContain('Diccionario');
   expect(labels.some((l) => l.startsWith('Añadir «'))).toBe(true);
   await page.keyboard.press('Escape');
 
   // Sin corrector no se ofrecen «Diccionario» ni «Añadir … al diccionario».
   await runMenu(page, 'Desactivar corrector');
-  await page.keyboard.press(`${Mod}+k`);
-  await page.waitForSelector('.panel__item');
-  labels = await page.locator('.panel__item .panel__label').allTextContents();
+  labels = await allMenuLabels(page);
   expect(labels).not.toContain('Diccionario');
   expect(labels.some((l) => l.startsWith('Añadir «'))).toBe(false);
   await page.keyboard.press('Escape');
 
   await runMenu(page, 'Activar corrector');
+  labels = await allMenuLabels(page);
+  expect(labels).toContain('Diccionario');
+  await page.keyboard.press('Escape');
+});
+
+test('las opciones secundarias quedan detrás de «Más…»', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+
+  const secondary = [
+    'Desactivar corrector',
+    'Diccionario',
+    'Crear pestaña',
+    'Crear subpestaña',
+    'Historial',
+    'Instrucciones',
+  ];
+  await page.keyboard.press(`${Mod}+k`);
+  await page.waitForSelector('.panel__item');
+  let labels = await page.locator('.panel__item .panel__label').allTextContents();
+  for (const l of secondary) expect(labels).not.toContain(l);
+  expect(labels.at(-1)).toBe('Más…');
+
+  // «Más…» no cierra el menú: sustituye su fila por las secundarias y activa la primera.
+  await pickMenuItem(page, 'Más…');
+  labels = await page.locator('.panel__item .panel__label').allTextContents();
+  expect(labels).not.toContain('Más…');
+  for (const l of secondary) expect(labels).toContain(l);
+  await expect(page.locator('.panel__item--active .panel__label')).toHaveText('Desactivar corrector');
+  await page.keyboard.press('Escape');
+
+  // Al volver a abrirlo, vuelven a estar ocultas.
   await page.keyboard.press(`${Mod}+k`);
   await page.waitForSelector('.panel__item');
   labels = await page.locator('.panel__item .panel__label').allTextContents();
-  expect(labels).toContain('Diccionario');
+  expect(labels).not.toContain('Historial');
   await page.keyboard.press('Escape');
+});
+
+test('«Instrucciones» abre un panel con las convenciones y los atajos', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+
+  await runMenu(page, 'Instrucciones');
+  const panel = page.locator('.panel');
+  await expect(panel.locator('.panel__header')).toHaveText('Instrucciones');
+  await expect(panel.locator('.help__title')).toHaveText(['Escribir', 'Pestañas', 'Atajos', 'Zen', 'Historial']);
+  await expect(panel.locator('.help__sample--heading')).toHaveText('# Semana');
+  // Los atajos salen de la tabla real: ⌘ en Mac, Ctrl en el resto.
+  await expect(panel.locator('.help__key', { hasText: Mod === 'Meta' ? '⌘K' : 'Ctrl+K' })).toHaveCount(1);
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.panel')).toHaveCount(0);
 });
 
 test('tema oscuro desde el menú', async ({ page }) => {

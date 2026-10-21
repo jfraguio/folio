@@ -20,7 +20,7 @@ import { emptyTab, joinDocument, splitDocument, TAB_COUNT } from '../persistence
 import { prefs } from '../persistence/prefs';
 import { requestPersistentStorage } from '../persistence/db';
 import { SpellService } from '../spell/SpellService';
-import { CommandRegistry, labelOf } from './commands';
+import { CommandRegistry, labelOf, type Command } from './commands';
 import { installShortcuts, shortcutFor } from './shortcuts';
 import { SaveStatus, StatusDot, describeStatus } from '../ui/StatusDot';
 import { createMenuButton } from '../ui/MenuButton';
@@ -30,6 +30,7 @@ import { openMenu, closeOverlay, isOverlayOpen, type MenuItem } from '../ui/Menu
 import { openDialog } from '../ui/Dialog';
 import { openDictionaryManager } from '../ui/DictionaryManager';
 import { openHistory } from '../ui/History';
+import { openHelp } from '../ui/Help';
 import { el, formatDateTime, relativeTime } from '../ui/el';
 
 export interface SessionOptions {
@@ -598,12 +599,19 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
             closeOverlay();
             return;
           }
-          const items: MenuItem[] = commands
+          const toItem = (c: Command): MenuItem => ({
+            id: c.id,
+            label: labelOf(c),
+            // En táctil no hay teclado físico: los atajos a la derecha solo estorban.
+            meta: touch ? undefined : shortcutFor(c.id),
+          });
+          const listed = commands
             .visible()
             // Los saltos directos a una tab o subtab (`tab.N`, `subtab.N`) van por atajo; crear y eliminar sí se listan.
-            .filter((c) => c.id !== 'menu' && !/^(sub)?tab\.\d+$/.test(c.id))
-            // En táctil no hay teclado físico: los atajos a la derecha solo estorban.
-            .map((c) => ({ id: c.id, label: labelOf(c), meta: touch ? undefined : shortcutFor(c.id) }));
+            .filter((c) => c.id !== 'menu' && !/^(sub)?tab\.\d+$/.test(c.id));
+          // Las de uso ocasional quedan detrás de «Más…».
+          const items = listed.filter((c) => !c.more).map(toItem);
+          const more = listed.filter((c) => c.more).map(toItem);
           // Sin ratón no hay tooltip en el punto de estado: el estado del guardado se lee aquí.
           if (touch) {
             const status = describeStatus(saveStatus.state, saveStatus.lastSaved);
@@ -612,6 +620,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           openMenu(
             {
               items,
+              more,
               onSelect: (item) => void commands.run(item.id),
               // Con el menú abierto, un número cambia directamente a esa tab principal (0 = la 10), si
               // existe. En modo zen solo se ve la tab abierta: cambiar a otra desde aquí lo desactiva.
@@ -629,9 +638,11 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         },
       },
       // El orden de registro es el del menú: Modo zen, Tema, Pantalla completa, Corrector,
-      // Diccionario, Crear pestaña, Crear subpestaña, Eliminar pestaña, Historial; después, las
-      // opciones que solo aparecen en situaciones concretas (palabra bajo el cursor, modo degradado,
-      // error de guardado).
+      // Diccionario, Crear pestaña, Crear subpestaña, Eliminar pestaña, Historial, Instrucciones;
+      // después, las opciones que solo aparecen en situaciones concretas (palabra bajo el cursor,
+      // modo degradado, error de guardado). Las marcadas con `more` (Corrector, Diccionario,
+      // crear/eliminar tabs, Historial e Instrucciones) no se ven de entrada: van al final, detrás
+      // de «Más…», en este mismo orden.
       {
         id: 'zen.toggle',
         label: () => (prefs.get('zen') ? 'Desactivar modo zen' : 'Modo zen'),
@@ -662,6 +673,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         id: 'spell.toggle',
         label: () => (prefs.get('spellEnabled') ? 'Desactivar corrector' : 'Activar corrector'),
         keywords: 'ortografía',
+        more: true,
         run: () => setSpellEnabled(!prefs.get('spellEnabled')),
       },
       {
@@ -670,6 +682,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         keywords: 'palabras ortografía',
         // Solo tiene sentido con el corrector activado.
         when: () => prefs.get('spellEnabled'),
+        more: true,
         run: () => openDictionaryManager(dictionary, forgetWord, focusEditor),
       },
       // Crear y quitar tabs y subtabs. Solo se crea desde una tab principal (no desde una subtab);
@@ -679,6 +692,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         label: 'Crear pestaña',
         keywords: 'nueva tab añadir',
         when: () => activeSub < 0 && tabs.length < TAB_COUNT,
+        more: true,
         run: () => addTab(),
       },
       {
@@ -686,6 +700,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         label: 'Crear subpestaña',
         keywords: 'nueva subtab añadir',
         when: () => activeSub < 0 && (tabs[activeTab]?.subs.length ?? TAB_COUNT) < TAB_COUNT,
+        more: true,
         run: () => addSubTab(),
       },
       {
@@ -693,6 +708,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         label: () => (activeSub >= 0 ? `Eliminar subpestaña ${activeSub + 1}` : `Eliminar pestaña ${activeTab + 1}`),
         keywords: 'quitar borrar tab subtab',
         when: () => canRemoveActive(),
+        more: true,
         run: () => removeActive(),
       },
       {
@@ -701,6 +717,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         keywords: 'copias de seguridad versiones backup respaldo',
         // En modo degradado la identidad del archivo no es estable y no se guardan versiones.
         when: () => !degraded,
+        more: true,
         run: async () => {
           if (isOverlayOpen()) {
             closeOverlay();
@@ -709,6 +726,13 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           await backupReady; // que la versión de apertura, si la hay, ya esté en la lista
           openHistory(historyId, file.name, { saveNow: () => history.saveNow(), restoreFocus: focusEditor });
         },
+      },
+      {
+        id: 'help',
+        label: 'Instrucciones',
+        keywords: 'ayuda atajos teclado cómo funciona',
+        more: true,
+        run: () => openHelp({ touch, degraded, restoreFocus: focusEditor }),
       },
       {
         id: 'dictionary.add',
