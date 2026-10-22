@@ -1,0 +1,53 @@
+specs.md
+  s_2d15eb0962daab::t_712c3c3111f2f0 3,11,15,19,21,31,36-42,47-48,50,52,57-58,65-66,69-70,72-77,96-97,100-101,103,105-106,110-113,117-118,122-123,128-129,133-134,140-142,146-147,149,153-156,159,163-166,169-173,176,178,180-188,190-201,203-206,211-213,217-220,223-224,228,230-231,233-234,236,238-244,248-251,261-266,270,273-274,277-279,304,307-320,329,333-334,338-339,341-342,347-348,351-366,371-374,376-380,384,386-392,398-402,409-411,414,417-418,423-425,427-428,430,432,439-441,446-447,449,451-478,482,485,490-492,494-495,501-502,504,506,511-517,521-523,527,539,543,550,553,557-561,565,576-577,580-600,611-616,625,627,629,631-633,635-638,642-643,648-651,653-658
+src/app/session.ts
+  s_2d15eb0962daab::t_5c966ee0e94903 11,15,42-46,75,140-153,161-169,179-180,182,379,381-382,414-415,422,434-440,564,614-619,622-629,631,633,635-686,736-741,768-774,817-825,906-909
+src/editor/createEditor.ts
+  s_2d15eb0962daab::t_47831c669931fe 4,32-33
+src/editor/focusMode.ts
+  s_2d15eb0962daab::t_e5083e53c92a9c 92-96,98,102,105-107,121-122,125
+src/editor/links.ts
+  s_2d15eb0962daab::t_e070b578b1ecd3 240-246,254,344
+src/persistence/autosave.ts
+  s_2d15eb0962daab::t_9385257381cb2d 65,67-71,81,101,119,126-132,135,150-154,190-195,202,221-229
+src/persistence/liveDraft.ts
+  s_2d15eb0962daab::t_68be1602ecc8d5 5-12,31,48,50,52,54
+src/styles/base.css
+  s_2d15eb0962daab::t_b72bd88e4590b8 174,344-345,348-352
+src/styles/overlays.css
+  s_2d15eb0962daab::t_715319d50d5f36 28-33
+src/styles/tokens.css
+  s_2d15eb0962daab::t_7b7cbb02e3c6a0 42-44,86-87
+src/text/plain.ts
+  s_2d15eb0962daab::t_0a8abeafba751a 1-154
+src/ui/Menu.ts
+  s_2d15eb0962daab::t_bcdbc35f088311 25-26,34-39,59-62,65-68,103-112,137,155
+src/ui/TabBar.ts
+  s_2d15eb0962daab::t_e4a7a652345bdf 2,135
+src/ui/env.ts
+  s_2d15eb0962daab::t_124194e1eaee87 19-27
+tests/autosave.test.ts
+  s_2d15eb0962daab::t_dd8b6821027444 118,120-124,128,132-165
+tests/e2e/folio.spec.ts
+  s_2d15eb0962daab::t_e6660a9c30e2b8 6-9,34-37,51-52,172,191-193,204-312,560-758
+tests/folioFormat.test.ts
+  s_2d15eb0962daab::t_af810c7baa0292 69-82,114-118
+tests/liveDraft.test.ts
+  s_2d15eb0962daab::t_d4c577dc85db0e 2,55-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "24a205042933b474e4b2efd5972dabffdfa6a817",
+  "prompts": {},
+  "sessions": {
+    "s_2d15eb0962daab": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_e9b4fc887ffe0N05Dem75GQNLL",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
