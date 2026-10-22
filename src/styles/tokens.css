@@ -39,6 +39,9 @@
   --line-height: 1.65;
   --measure: 38rem;
   --ease: 120ms ease;
+  /* Fundidos más lentos: el del punto de estado al quedar guardado y el de los avisos. */
+  --fade-dot: 300ms ease;
+  --fade-notice: 200ms ease;
 
   /* Bordes seguros (notch, barra de gestos). Valen 0 fuera de móvil. */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -80,5 +83,7 @@
 @media (prefers-reduced-motion: reduce) {
   :root {
     --ease: 0s;
+    --fade-dot: 0s;
+    --fade-notice: 0s;
   }
 }

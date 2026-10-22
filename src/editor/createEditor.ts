@@ -1,6 +1,7 @@
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, drawSelection, highlightSpecialChars, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, insertTab } from '@codemirror/commands';
+import { prefersReducedMotion } from '../ui/env';
 import { spellCompartment } from './spellcheck';
 import { links } from './links';
 import { richCopy } from './copy';
@@ -28,7 +29,8 @@ export interface EditorOptions extends EditorConfig {
 export function editorExtensions(o: EditorConfig = {}): Extension[] {
   return [
     history(),
-    drawSelection(),
+    // Con «reducir movimiento», el cursor no parpadea (0 = fijo); si no, el ritmo de CodeMirror.
+    drawSelection({ cursorBlinkRate: prefersReducedMotion() ? 0 : 1200 }),
     highlightSpecialChars(),
     EditorView.lineWrapping,
     // El corrector es el propio (nspell): sin el subrayado nativo por encima. En móvil, además,

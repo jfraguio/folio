@@ -115,16 +115,54 @@ describe('Autosave', () => {
     expect(a.lastKnownMtime).toBe(5001);
   });
 
-  it('si onNewerOnDisk no acepta nada, vuelve a dirty en vez de quedarse colgado en saving', async () => {
+  it('si onNewerOnDisk no acepta nada, vuelve a dirty y lo reintenta tras la espera', async () => {
     const { io, writes, setDisk } = makeIO();
-    const onNewerOnDisk = vi.fn();
+    // Como la sesión cuando, al releer, el disco resulta tener el mismo contenido: solo actualiza
+    // el mtime conocido, sin aceptar una versión (los cambios locales siguen pendientes).
+    const onNewerOnDisk = vi.fn(() => {
+      a.lastKnownMtime = 5000;
+    });
     const a = new Autosave({ getText: () => 'x', io, initialMtime: 1000, debounceMs: 10, onNewerOnDisk });
     setDisk(5000);
     a.markDirty();
-    await vi.advanceTimersByTimeAsync(20);
+    await vi.advanceTimersByTimeAsync(15);
     expect(writes).toEqual([]);
     expect(onNewerOnDisk).toHaveBeenCalledTimes(1);
     expect(a.state).toBe('dirty');
+    // Sin otra edición: el reintento llega solo, tras la espera, y escribe.
+    await vi.advanceTimersByTimeAsync(10);
+    expect(onNewerOnDisk).toHaveBeenCalledTimes(1);
+    expect(writes).toEqual(['x']);
+    expect(a.state).toBe('saved');
+  });
+
+  it('no reescribe un archivo que solo difiere de su forma canónica mientras no haya cambios', async () => {
+    const { io, writes } = makeIO();
+    let text = 'canónico';
+    const a = new Autosave({ getText: () => text, io, initialMtime: 1000, debounceMs: 10 });
+    a.accept(1000, 'tal cual en el disco', 'canónico');
+    await a.flush();
+    expect(writes).toEqual([]);
+    expect(a.state).toBe('saved');
+    // El disco sigue siendo lo que se leyó (para detectar cambios externos)…
+    expect(a.isSameAsSaved('tal cual en el disco')).toBe(true);
+    expect(a.savedText).toBe('tal cual en el disco');
+    // …y en cuanto hay un cambio de verdad, se escribe entero (ya en forma canónica).
+    text = 'canónico + edición';
+    a.markDirty();
+    await vi.advanceTimersByTimeAsync(20);
+    expect(writes).toEqual(['canónico + edición']);
+    expect(a.savedText).toBe('canónico + edición');
+  });
+
+  it('la espera por defecto es de 3 s', async () => {
+    const { io, writes } = makeIO();
+    const a = new Autosave({ getText: () => 'y', io, initialMtime: 1000 });
+    a.markDirty();
+    await vi.advanceTimersByTimeAsync(2900);
+    expect(writes).toEqual([]);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(writes).toEqual(['y']);
   });
 
   it('si el disco es anterior (aunque distinto), lo local prevalece y se escribe', async () => {

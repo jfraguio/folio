@@ -25,6 +25,12 @@
   }
 }
 
+/* Un panel que sustituye a otro (el menú → «Títulos»): el velo ya estaba, no vuelve a aparecer. */
+.overlay--instant,
+.overlay--instant .panel {
+  animation: none;
+}
+
 .panel {
   width: min(34rem, 92vw);
   max-height: 70vh;

@@ -52,11 +52,13 @@ describe('enlaces Markdown [texto](url)', () => {
 });
 
 describe('pegar una URL sobre una selección', () => {
+  // Con los mismos filtros que el editor real (protección de la sintaxis y cursor junto a enlaces):
+  // sin ellos, una regresión en la que la protección deshace el cambio de URL pasaría inadvertida.
   const paste = (doc: string, ranges: Array<[number, number]>, url = 'https://x.org/(a)') => {
     const state = EditorState.create({
       doc,
       selection: EditorSelection.create(ranges.map(([a, b]) => EditorSelection.range(a, b))),
-      extensions: [EditorState.allowMultipleSelections.of(true)],
+      extensions: [EditorState.allowMultipleSelections.of(true), linkIntegrity, linkCursor],
     });
     const spec = linkSelection(state, url);
     if (!spec) return null;
@@ -74,9 +76,21 @@ describe('pegar una URL sobre una selección', () => {
     expect(paste('hola mundo', [[4, 10]])!.doc).toBe('hola [mundo](https://x.org/%28a%29)');
   });
 
-  it('dentro del texto de un enlace, cambia su URL', () => {
+  it('dentro del texto de un enlace, cambia su URL y deja el cursor tras el enlace', () => {
     const r = paste('ver [web](https://viejo.org) ya', [[5, 8]], 'https://nuevo.org');
     expect(r!.doc).toBe('ver [web](https://nuevo.org) ya');
+    expect(r!.head).toBe('ver [web](https://nuevo.org)'.length);
+    // También con una selección parcial del texto y junto a otro enlace nuevo.
+    expect(
+      paste(
+        'uno [dos](https://a.org)',
+        [
+          [0, 3],
+          [6, 7],
+        ],
+        'https://b.org',
+      )!.doc,
+    ).toBe('[uno](https://b.org) [dos](https://b.org)');
   });
 
   it('pegado normal si no hay selección, ocupa varias líneas, tiene corchetes o pisa un enlace a medias', () => {

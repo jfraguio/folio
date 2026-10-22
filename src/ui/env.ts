@@ -16,6 +16,15 @@ export function isTouch(): boolean {
   );
 }
 
+/** El usuario ha pedido reducir el movimiento (`prefers-reduced-motion: reduce`). Se consulta en cada uso. */
+export function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 /** Marca el documento para que el CSS pueda distinguir el entorno táctil (`html[data-touch]`). */
 export function applyTouchFlag(): void {
   if (isTouch()) document.documentElement.dataset.touch = '';

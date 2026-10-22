@@ -62,7 +62,13 @@ export class Autosave {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private retryMs = 2000;
   private pendingAgain = false;
+  /** Lo que hay en el disco según lo último leído o escrito (para comparar con el disco). */
   private lastSavedText: string | null = null;
+  /**
+   * Ese mismo contenido tal y como lo serializaría la aplicación (ver `accept`). Si el texto actual
+   * coincide con él, no hay nada que escribir aunque el disco no esté en forma canónica.
+   */
+  private lastSavedCanonical: string | null = null;
   private disposed = false;
 
   private readonly debounceMs: number;
@@ -72,7 +78,7 @@ export class Autosave {
 
   constructor(private readonly opts: AutosaveOptions) {
     this.lastKnownMtime = opts.initialMtime;
-    this.debounceMs = opts.debounceMs ?? 1500;
+    this.debounceMs = opts.debounceMs ?? 3000;
     this.periodicMs = opts.periodicMs ?? 30_000;
     this.maxRetryMs = opts.maxRetryMs ?? 60_000;
     this.now = opts.now ?? Date.now;
@@ -92,8 +98,7 @@ export class Autosave {
       return;
     }
     this.setState('dirty');
-    if (this.debounceTimer) clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => void this.flush(), this.debounceMs);
+    this.armDebounce();
     if (!this.periodicTimer) {
       this.periodicTimer = setTimeout(() => {
         this.periodicTimer = null;
@@ -111,17 +116,23 @@ export class Autosave {
       return;
     }
     const text = this.opts.getText();
-    if (this.state !== 'error' && text === this.lastSavedText) {
+    if (this.state !== 'error' && this.isUnchanged(text)) {
       if (this.state === 'dirty') this.setState('saved');
       return;
     }
     await this.doWrite(text);
   }
 
-  /** Tras cargar la versión del disco o tras "guardar como": se acepta el mtime dado. */
-  accept(mtime: number, text: string): void {
+  /**
+   * Tras cargar la versión del disco o tras "guardar como": se aceptan su mtime y su texto.
+   * `canonical` es ese texto tal y como lo escribiría la aplicación (si el archivo no estaba en su
+   * formato, difiere): mientras el usuario no cambie nada, no se reescribe el archivo solo para
+   * normalizarlo. Sin él, solo cuenta como guardado el texto exacto.
+   */
+  accept(mtime: number, text: string, canonical: string = text): void {
     this.lastKnownMtime = mtime;
     this.lastSavedText = text;
+    this.lastSavedCanonical = canonical;
     this.lastSavedAt = this.now();
     this.pendingAgain = false;
     this.clearTimer('retry');
@@ -134,6 +145,11 @@ export class Autosave {
    */
   isSameAsSaved(text: string): boolean {
     return this.lastSavedText !== null && text === this.lastSavedText;
+  }
+
+  /** Contenido del disco según lo último leído o escrito (`null` si aún no se ha aceptado nada). */
+  get savedText(): string | null {
+    return this.lastSavedText;
   }
 
   /** Reintento manual (por ejemplo tras recuperar permisos con gesto de usuario). */
@@ -171,13 +187,19 @@ export class Autosave {
           // vuelve a `dirty` para que el siguiente intento (o el sondeo externo) lo resuelva.
           this.pendingAgain = false;
           await this.opts.onNewerOnDisk?.(diskMtime);
-          if (this.state === 'saving') this.setState('dirty');
+          // Si no se aceptó una versión del disco (p. ej. al releerlo resultó tener el mismo
+          // contenido), los cambios locales siguen pendientes: se vuelve a intentar tras la espera.
+          if (this.state === 'saving') {
+            this.setState('dirty');
+            this.armDebounce();
+          }
           return;
         }
       }
       const mtime = await this.opts.io.write(text);
       this.lastKnownMtime = mtime;
       this.lastSavedText = text;
+      this.lastSavedCanonical = text;
       this.lastSavedAt = this.now();
       this.retryMs = 2000;
       this.lastError = undefined;
@@ -194,6 +216,15 @@ export class Autosave {
       this.pendingAgain = false;
       this.markDirty();
     }
+  }
+
+  private isUnchanged(text: string): boolean {
+    return text === this.lastSavedText || text === this.lastSavedCanonical;
+  }
+
+  private armDebounce(): void {
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => void this.flush(), this.debounceMs);
   }
 
   /** El disco tiene el mismo contenido que la última versión guardada (aunque el mtime sea otro). */

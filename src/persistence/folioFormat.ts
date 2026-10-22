@@ -46,10 +46,19 @@ import { LEGACY } from './legacyIds';
 /** Número máximo de tabs (espacios de texto) de la aplicación, y de subtabs por tab. */
 export const TAB_COUNT = 10;
 
-/** Marcador de tab (`[todo:tab N]`) o de subtab (`[todo:tab N.M]`): una línea entera. */
-const TAB_RE = new RegExp(`^\\[${LEGACY.tabMarker} (\\d+)(?:\\.(\\d+))?\\]$`, 'gm');
+/**
+ * Marcador de tab (`[todo:tab N]`) o de subtab (`[todo:tab N.M]`): una línea entera, con N y M entre
+ * 1 y TAB_COUNT (se admiten ceros a la izquierda). Una línea como `[todo:tab 11]` o `[todo:tab 0]`
+ * no es un marcador: es texto de la tab en la que aparece.
+ */
+const NUM = `0*(${TAB_COUNT}|[1-9])`;
+const TAB_RE = new RegExp(`^\\[${LEGACY.tabMarker} ${NUM}(?:\\.${NUM})?\\]$`, 'gm');
 
-/** Línea que, sin escapar, se leería como estructura (marcador de tab/subtab o bloque de diccionario). */
+/**
+ * Línea que, sin escapar, se leería como estructura (marcador de tab/subtab o bloque de diccionario).
+ * Abarca también los números fuera de rango: así los archivos escritos por versiones anteriores
+ * (que también los escapaban) se siguen leyendo igual, y el escape es reversible.
+ */
 const STRUCTURE = `\\[${LEGACY.tabMarker} \\d+(?:\\.\\d+)?\\]$|<!-- ${LEGACY.dictTag}`;
 
 /**
@@ -135,22 +144,18 @@ function parseTabs(text: string): Tab[] {
     return [{ text, subs: [] }];
   }
   // Tantas tabs como indique el marcador más alto: los huecos son tabs vacías. Lo mismo con las
-  // subtabs de cada tab.
-  const highest = Math.max(...marks.map((m) => Number(m[1])));
-  const count = Math.max(1, Math.min(TAB_COUNT, highest));
+  // subtabs de cada tab. TAB_RE solo reconoce números de 1 a TAB_COUNT.
+  const count = Math.max(...marks.map((m) => Number(m[1])));
   const tabs: Tab[] = Array.from({ length: count }, emptyTab);
   for (const m of marks) {
-    const idx = Number(m[1]) - 1;
-    if (idx < 0 || idx >= count || m[2] === undefined) continue;
-    const subs = tabs[idx]!.subs;
-    const need = Math.min(TAB_COUNT, Number(m[2]));
-    while (subs.length < need) subs.push('');
+    if (m[2] === undefined) continue;
+    const subs = tabs[Number(m[1]) - 1]!.subs;
+    while (subs.length < Number(m[2])) subs.push('');
   }
   marks.forEach((m, k) => {
     const start = (m.index ?? 0) + m[0].length;
     const next = marks[k + 1];
     const end = next ? (next.index ?? 0) : text.length;
-    const idx = Number(m[1]) - 1;
     // Tras el marcador va un salto de línea (si hay algo después) y, antes del siguiente
     // marcador, el salto que los separa: ninguno de los dos es contenido. Al escribir se recorta
     // el salto final de cada tab; al leer, solo el último contenido puede arrastrar el salto que
@@ -159,14 +164,9 @@ function parseTabs(text: string): Tab[] {
     if (content.startsWith('\n')) content = content.slice(1);
     if (content.endsWith('\n')) content = content.slice(0, -1);
     content = decodeContent(content);
-    if (idx < 0 || idx >= count) return;
-    const tab = tabs[idx]!;
-    if (m[2] === undefined) {
-      tab.text += content;
-      return;
-    }
-    const sub = Number(m[2]) - 1;
-    if (sub >= 0 && sub < tab.subs.length) tab.subs[sub] += content;
+    const tab = tabs[Number(m[1]) - 1]!;
+    if (m[2] === undefined) tab.text += content;
+    else tab.subs[Number(m[2]) - 1] += content;
   });
   return tabs;
 }

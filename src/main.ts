@@ -112,7 +112,13 @@ async function enter(file: FolioFile): Promise<void> {
     await previous?.close();
     tryApplyUpdate();
     const { startSession } = await import('./app/session');
-    session = await startSession({ root, adapter, file, onExit: () => void showStart() });
+    session = await startSession({
+      root,
+      adapter,
+      file,
+      onExit: () => void showStart(),
+      onSwitch: (next) => void enter(next),
+    });
   } catch (e) {
     console.error(e);
     notice('No se pudo abrir el archivo.');

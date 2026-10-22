@@ -3,6 +3,14 @@ import { getDB, type DraftRecord } from './db';
 const DEBOUNCE_MS = 300;
 
 /**
+ * ¿Se puede ofrecer este borrador? Una versión con un fallo guardaba, en lugar del texto, el
+ * SHA-256 de la base (64 caracteres hexadecimales) y sin `baseHash`: esos no se recuperan nunca.
+ */
+export function isUsableDraft(d: Pick<DraftRecord, 'text' | 'baseHash'>): boolean {
+  return d.baseHash !== undefined || !/^[0-9a-f]{64}$/.test(d.text);
+}
+
+/**
  * Borrador vivo: copia del texto completo en IndexedDB con debounce corto.
  * Protege frente a cierres bruscos y es el único autosave en modo degradado.
  *
@@ -20,7 +28,7 @@ export class LiveDraft {
   constructor(
     private readonly draftKey: string,
     private readonly getText: () => string,
-    private readonly baseHash: () => string | undefined = () => undefined,
+    private readonly baseHash: () => string | undefined | Promise<string | undefined> = () => undefined,
   ) {}
 
   /** Marca que hay cambios; el texto se serializa al vaciar. */
@@ -37,10 +45,13 @@ export class LiveDraft {
     }
     if (!this.dirty) return;
     this.dirty = false;
+    // Texto y base se toman a la vez (en el mismo instante) y la hora es la del texto.
     const text = this.getText();
+    const ts = Date.now();
     try {
+      const baseHash = await this.baseHash();
       const db = await getDB();
-      await db.put('drafts', { todoId: this.draftKey, ts: Date.now(), text, baseHash: this.baseHash() });
+      await db.put('drafts', { todoId: this.draftKey, ts, text, baseHash });
     } catch {
       /* si IndexedDB falla, el autosave sobre el archivo sigue funcionando */
     }

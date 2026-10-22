@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { LiveDraft } from '../src/persistence/liveDraft';
+import { LiveDraft, isUsableDraft } from '../src/persistence/liveDraft';
 import { getDB, resetDBForTests } from '../src/persistence/db';
 
 async function clearDB(): Promise<void> {
@@ -51,5 +51,30 @@ describe('LiveDraft', () => {
     await d.flush();
     await d.clear();
     expect(await LiveDraft.read('fileKey1')).toBeUndefined();
+  });
+
+  it('el hash de la base puede ser asíncrono y se pide en el mismo instante que el texto', async () => {
+    let base = 'base 1';
+    const d = new LiveDraft(
+      'k',
+      () => 'texto',
+      async () => {
+        const b = base; // se lee al llamar, antes de cualquier espera
+        await Promise.resolve();
+        return `hash(${b})`;
+      },
+    );
+    d.schedule();
+    const flushing = d.flush();
+    base = 'base 2';
+    await flushing;
+    expect((await LiveDraft.read('k'))?.baseHash).toBe('hash(base 1)');
+  });
+
+  it('isUsableDraft descarta los borradores del fallo que guardaba un hash en lugar del texto', () => {
+    const hex = 'a'.repeat(64);
+    expect(isUsableDraft({ text: hex, baseHash: undefined })).toBe(false);
+    expect(isUsableDraft({ text: hex, baseHash: 'h' })).toBe(true);
+    expect(isUsableDraft({ text: 'texto de verdad', baseHash: undefined })).toBe(true);
   });
 });

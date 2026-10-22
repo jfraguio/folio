@@ -3,6 +3,10 @@ import { expect, test, type Page } from '@playwright/test';
 declare global {
   interface Window {
     __fsRead: (name: string) => string | undefined;
+    /** Si está, las escrituras fallan con ese error (`NotAllowedError`, `Error`…). */
+    __fsFail?: string;
+    /** Nombre que «elige» el usuario en el próximo diálogo de guardar. */
+    __nextSaveName?: string;
   }
 }
 
@@ -27,6 +31,10 @@ const FS_SHIM = `
           return Promise.resolve(new File([e?.content ?? ''], name, { type: 'text/plain', lastModified: e?.lastModified ?? Date.now() }));
         },
         createWritable() {
+          if (window.__fsFail) {
+            const name = window.__fsFail;
+            return Promise.reject(name === 'Error' ? new Error('fallo') : new DOMException('fallo', name));
+          }
           let buf = '';
           return Promise.resolve({
             write(t) { return Promise.resolve().then(() => { buf += typeof t === 'string' ? t : ''; }); },
@@ -40,7 +48,8 @@ const FS_SHIM = `
       };
     }
     window.showSaveFilePicker = (opts) => {
-      const name = (opts && opts.suggestedName) || 'folio.txt';
+      const name = window.__nextSaveName || (opts && opts.suggestedName) || 'folio.txt';
+      window.__nextSaveName = undefined;
       const s = load();
       if (!s.has(name)) { s.set(name, { content: '', lastModified: Date.now() }); save(s); }
       return Promise.resolve(makeHandle(name));
@@ -160,6 +169,7 @@ test('las opciones secundarias quedan detrás de «Más…»', async ({ page }) 
   await createFile(page);
 
   const secondary = [
+    'Títulos',
     'Desactivar corrector',
     'Diccionario',
     'Crear pestaña',
@@ -178,7 +188,9 @@ test('las opciones secundarias quedan detrás de «Más…»', async ({ page }) 
   labels = await page.locator('.panel__item .panel__label').allTextContents();
   expect(labels).not.toContain('Más…');
   for (const l of secondary) expect(labels).toContain(l);
-  await expect(page.locator('.panel__item--active .panel__label')).toHaveText('Desactivar corrector');
+  // Con la tab vacía no hay nada que exportar.
+  expect(labels).not.toContain('Exportar pestaña');
+  await expect(page.locator('.panel__item--active .panel__label')).toHaveText('Títulos');
   await page.keyboard.press('Escape');
 
   // Al volver a abrirlo, vuelven a estar ocultas.
@@ -187,6 +199,115 @@ test('las opciones secundarias quedan detrás de «Más…»', async ({ page }) 
   labels = await page.locator('.panel__item .panel__label').allTextContents();
   expect(labels).not.toContain('Historial');
   await page.keyboard.press('Escape');
+});
+
+test('«Títulos» lista los títulos de la tab y lleva hasta el elegido', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+
+  // Sin títulos, la lista lo dice.
+  await runMenu(page, 'Títulos');
+  await expect(page.locator('.panel__empty')).toHaveText('Esta pestaña no tiene títulos');
+  await page.keyboard.press('Escape');
+
+  const filler = (tag: string) => Array.from({ length: 60 }, (_, i) => `${tag} ${i + 1}`).join('\n');
+  await page.locator('.cm-content').click();
+  await page.keyboard.insertText(
+    ['# Lunes', filler('a'), '## **Martes**', filler('b'), '# Lunes', filler('c')].join('\n'),
+  );
+
+  await runMenu(page, 'Títulos');
+  // Mismo aspecto que el menú, sin las marcas; los repetidos se distinguen a la derecha.
+  await expect(page.locator('.panel__item .panel__label')).toHaveText(['Lunes', 'Martes', 'Lunes']);
+  await expect(page.locator('.panel__item').nth(0).locator('.panel__meta')).toHaveText('1 de 2');
+  await expect(page.locator('.panel__item').nth(1).locator('.panel__meta')).toHaveCount(0);
+  await expect(page.locator('.panel__item').nth(2).locator('.panel__meta')).toHaveText('2 de 2');
+
+  // El segundo «Lunes» queda arriba, justo bajo la barra de tabs, con el cursor en él.
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.overlay')).toHaveCount(0);
+  const placement = async () =>
+    page.evaluate(() => {
+      const bar = document.querySelector('.tab-bar')!.getBoundingClientRect().bottom;
+      const lines = [...document.querySelectorAll('.cm-line')];
+      // Las dos líneas «# Lunes»: la primera está ya fuera de la vista (o sin pintar).
+      const second = lines.filter((l) => l.textContent === '# Lunes').at(-1)!;
+      const prev = second.previousElementSibling?.textContent;
+      return { offset: second.getBoundingClientRect().top - bar, prev };
+    });
+  await expect.poll(async () => (await placement()).offset).toBeGreaterThanOrEqual(0);
+  const { offset, prev } = await placement();
+  expect(offset).toBeLessThan(30);
+  expect(prev).toBe('b 60');
+  // El cursor está en esa línea: lo que se escribe entra al principio del título.
+  await page.keyboard.insertText('X');
+  await expect(page.locator('.cm-line', { hasText: 'X# Lunes' })).toHaveCount(1);
+});
+
+test('pasar del menú a «Títulos» no hace parpadear el velo', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+  await page.keyboard.press(`${Mod}+k`);
+  await page.waitForSelector('.panel__item');
+  await pickMenuItem(page, 'Más…');
+  // La entrada del propio menú (fundido desde transparente) ya ha terminado.
+  await page.waitForFunction(() => document.querySelector('.overlay')?.getAnimations().length === 0);
+
+  // Un registro por frame (velos en el DOM y la menor opacidad pintada), hasta un rato después
+  // de que aparezca la lista de títulos.
+  await page.evaluate(() => {
+    const w = window as unknown as { __frames: number[][]; __done: boolean };
+    w.__frames = [];
+    let after = 0;
+    const sample = () => {
+      const overlays = [...document.querySelectorAll<HTMLElement>('.overlay')];
+      const opacity = overlays.length ? Math.min(...overlays.map((o) => Number(getComputedStyle(o).opacity))) : 0;
+      w.__frames.push([overlays.length, opacity]);
+      if (document.querySelector('.panel__empty')) after++;
+      if (after < 15 && w.__frames.length < 600) requestAnimationFrame(sample);
+      else w.__done = true;
+    };
+    requestAnimationFrame(sample);
+  });
+  // Que el registro ya esté en marcha antes del cambio.
+  await page.waitForFunction(() => (window as unknown as { __frames: number[][] }).__frames.length >= 3);
+  await pickMenuItem(page, 'Títulos');
+  await expect(page.locator('.panel__empty')).toHaveText('Esta pestaña no tiene títulos');
+  await page.waitForFunction(() => (window as unknown as { __done: boolean }).__done);
+
+  const frames = await page.evaluate(() => (window as unknown as { __frames: number[][] }).__frames);
+  // En todos los frames, un único velo y opaco: ni un frame sin él ni una entrada desde transparente.
+  expect(frames.length).toBeGreaterThanOrEqual(18);
+  for (const f of frames) expect(f).toEqual([1, 1]);
+  await expect(page.locator('.overlay')).toHaveClass(/overlay--instant/);
+});
+
+test('«Exportar pestaña» descarga la tab abierta como texto plano', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.insertText(
+    [
+      '# Compra semanal',
+      '-- **Leche**',
+      'Pan *integral*',
+      '> ver [la tienda](https://tienda.example)',
+      '---',
+      'fin',
+    ].join('\n'),
+  );
+
+  const downloading = page.waitForEvent('download');
+  await runMenu(page, 'Exportar pestaña');
+  const file = await downloading;
+  expect(file.suggestedFilename()).toBe('Compra.txt');
+  const { readFile } = await import('node:fs/promises');
+  const text = await readFile((await file.path())!, 'utf8');
+  expect(text).toBe(
+    ['Compra semanal', 'Leche', 'Pan integral', 'ver la tienda (https://tienda.example)', '', 'fin'].join('\n'),
+  );
 });
 
 test('«Instrucciones» abre un panel con las convenciones y los atajos', async ({ page }) => {
@@ -435,4 +556,203 @@ test('reabrir conserva el contenido y las tabs', async ({ page }) => {
   await page.waitForSelector('.cm-editor');
   await expect(page.locator('.cm-content')).toContainText('Compra semanal');
   await expect(page.locator('.tab-bar__tab').first()).toHaveText('Compra');
+});
+
+/** Estado del punto de estado. */
+const dotState = (page: Page) => page.locator('.status-dot').getAttribute('data-state');
+
+test('borrador vivo: lo que no llegó al archivo se recupera al reabrir', async ({ page }) => {
+  page.on('dialog', (d) => void d.accept()); // «¿Salir del sitio?» al recargar con cambios sin guardar
+  await page.goto('/');
+  await createFile(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.type('Compra semanal');
+  await waitSaved(page);
+
+  // El disco deja de aceptar escrituras: lo nuevo solo queda en el borrador.
+  await page.evaluate(() => (window.__fsFail = 'Error'));
+  await page.keyboard.type(' y fruta');
+  await expect.poll(() => dotState(page), { timeout: 6000 }).toBe('error');
+  await page.reload();
+
+  await page.getByRole('button', { name: 'OPEN', exact: true }).click();
+  await expect(page.locator('.panel__body')).toContainText('Hay cambios sin guardar');
+  await page.getByRole('button', { name: 'Recuperar' }).click();
+  await expect(page.locator('.cm-content')).toHaveText('Compra semanal y fruta');
+  // Y se escribe en el archivo.
+  await waitSaved(page);
+  expect(await page.evaluate(() => window.__fsRead('folio.txt'))).toBe('[todo:tab 1]\nCompra semanal y fruta');
+
+  // Ya guardado, al reabrir no se vuelve a ofrecer.
+  await page.reload();
+  await page.getByRole('button', { name: 'OPEN', exact: true }).click();
+  await page.waitForSelector('.cm-editor');
+  await expect(page.locator('.cm-content')).toHaveText('Compra semanal y fruta');
+  await expect(page.locator('.overlay')).toHaveCount(0);
+});
+
+test('abrir un archivo de texto plano no lo reescribe hasta que se edita', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() =>
+    localStorage.setItem(
+      '__fs',
+      JSON.stringify([['notas.txt', { content: 'Texto plano\r\nsin marcadores\n', lastModified: 1000 }]]),
+    ),
+  );
+  await page.getByRole('button', { name: 'OPEN', exact: true }).click();
+  await page.waitForSelector('.cm-editor');
+  await expect(page.locator('.cm-content')).toContainText('sin marcadores');
+
+  // ⌘S y pasar a segundo plano guardan «lo pendiente»: no hay nada, el archivo queda intacto.
+  await page.keyboard.press(`${Mod}+s`);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+  });
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__fsRead('notas.txt'))).toBe('Texto plano\r\nsin marcadores\n');
+
+  // Al editar, se escribe ya en el formato de folio (saltos \n, marcador y sin saltos finales).
+  await page.locator('.cm-content').click();
+  await page.keyboard.press(`${Mod}+End`);
+  await page.keyboard.press('Backspace'); // la línea vacía final
+  await page.keyboard.type(' (editado)');
+  await page.keyboard.press(`${Mod}+s`);
+  await expect
+    .poll(() => page.evaluate(() => window.__fsRead('notas.txt')))
+    .toBe('[todo:tab 1]\nTexto plano\nsin marcadores (editado)');
+});
+
+test('sin permiso de escritura, «Guardar en otro archivo…» lleva el texto a un archivo nuevo y lo abre', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await createFile(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.type('Compra semanal');
+  await waitSaved(page);
+
+  await page.evaluate(() => (window.__fsFail = 'NotAllowedError'));
+  await page.keyboard.type(' y fruta');
+  await expect(page.locator('.notice--visible')).toContainText('folio perdió el permiso de escritura', {
+    timeout: 6000,
+  });
+  expect(await dotState(page)).toBe('error');
+
+  // Sin error no se ofrece; con él, sí (junto a «Reintentar guardado»).
+  const labels = await allMenuLabels(page);
+  expect(labels).toContain('Reintentar guardado');
+  expect(labels).toContain('Guardar en otro archivo…');
+  await page.keyboard.press('Escape');
+
+  await page.evaluate(() => {
+    window.__fsFail = undefined;
+    window.__nextSaveName = 'rescate.txt';
+  });
+  await runMenu(page, 'Guardar en otro archivo…');
+  await expect(page.locator('.notice--visible')).toContainText('Guardado en rescate.txt');
+  expect(await page.evaluate(() => window.__fsRead('rescate.txt'))).toBe('[todo:tab 1]\nCompra semanal y fruta');
+  // El archivo nuevo queda abierto: lo siguiente se escribe en él, no en el anterior.
+  await expect(page.locator('.cm-content')).toHaveText('Compra semanal y fruta');
+  await expect.poll(() => page.locator('.brand').getAttribute('title')).toContain('rescate.txt');
+  await page.locator('.cm-content').click();
+  await page.keyboard.press(`${Mod}+End`);
+  await page.keyboard.type('!');
+  await page.keyboard.press(`${Mod}+s`);
+  await expect
+    .poll(() => page.evaluate(() => window.__fsRead('rescate.txt')))
+    .toBe('[todo:tab 1]\nCompra semanal y fruta!');
+  expect(await page.evaluate(() => window.__fsRead('folio.txt'))).toBe('[todo:tab 1]\nCompra semanal');
+  const after = await allMenuLabels(page);
+  expect(after).not.toContain('Guardar en otro archivo…');
+});
+
+test('pegar una URL sobre el texto de un enlace le cambia la URL', async ({ page, context, browserName }) => {
+  test.skip(browserName !== 'chromium', 'portapapeles');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await createFile(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.insertText('ver [la web](https://viejo.example) hoy');
+  await waitSaved(page);
+  // Seleccionar «web» dentro del enlace (el texto visible es «ver la web hoy»).
+  await page.evaluate(() => navigator.clipboard.writeText('https://nuevo.example'));
+  await page.keyboard.press(`${Mod}+Home`);
+  for (let i = 0; i < 'ver la '.length; i++) await page.keyboard.press('ArrowRight');
+  for (let i = 0; i < 'web'.length; i++) await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press(`${Mod}+v`);
+  await page.keyboard.press(`${Mod}+s`);
+  await expect
+    .poll(() => page.evaluate(() => window.__fsRead('folio.txt')))
+    .toBe('[todo:tab 1]\nver [la web](https://nuevo.example) hoy');
+});
+
+test('los avisos se ven por encima de un panel abierto', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.type('Compra semanal');
+  await waitSaved(page);
+  await runMenu(page, 'Historial');
+  await page.getByRole('button', { name: 'Guardar versión' }).click();
+  const notice = page.locator('.notice--visible');
+  await expect(notice).toHaveText(/Versión guardada\.|Sin cambios desde la última versión\./);
+  const [noticeZ, overlayZ] = await page.evaluate(() => [
+    Number(getComputedStyle(document.querySelector('.notice')!).zIndex),
+    Number(getComputedStyle(document.querySelector('.overlay')!).zIndex),
+  ]);
+  expect(noticeZ).toBeGreaterThan(overlayZ);
+  // Y no roba los clics de lo que tiene debajo.
+  expect(await notice.evaluate((n) => getComputedStyle(n).pointerEvents)).toBe('none');
+});
+
+test.describe('zen con pantalla táctil', () => {
+  test.use({ hasTouch: true });
+
+  test('un toque en el margen no enfoca el editor (no abre el teclado); un clic con ratón, sí', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('todo.zen', 'true'));
+    await page.goto('/');
+    await createFile(page);
+    await page.locator('.cm-content').click();
+    await page.keyboard.type('Compra semanal');
+    const editorFocused = () => page.evaluate(() => !!document.activeElement?.closest('.cm-editor'));
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    expect(await editorFocused()).toBe(false);
+
+    // Margen izquierdo de la columna centrada del zen.
+    await page.touchscreen.tap(8, 300);
+    await page.waitForTimeout(100);
+    expect(await editorFocused()).toBe(false);
+
+    await page.mouse.click(8, 300);
+    await expect.poll(editorFocused).toBe(true);
+  });
+});
+
+test('con «reducir movimiento» no hay fundidos, ni scroll suave, ni parpadeo del cursor', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await createFile(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.type('Compra');
+  const styles = await page.evaluate(() => ({
+    dot: getComputedStyle(document.querySelector('.status-dot')!, '::after').transitionDuration,
+    // CodeMirror desactiva el parpadeo con una duración de 0.
+    cursor: getComputedStyle(document.querySelector('.cm-cursorLayer')!).animationDuration,
+  }));
+  expect(styles.dot.split(',').every((d) => d.trim() === '0s')).toBe(true);
+  expect(styles.cursor).toBe('0s');
+  // Los avisos: basta con su regla de estilo (un nodo con su clase).
+  await page.evaluate(() => {
+    const n = document.createElement('div');
+    n.className = 'notice';
+    document.body.appendChild(n);
+  });
+  expect(
+    await page
+      .locator('.notice')
+      .last()
+      .evaluate((n) => getComputedStyle(n).transitionDuration),
+  ).toBe('0s');
 });

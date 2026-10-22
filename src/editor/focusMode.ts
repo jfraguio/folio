@@ -89,12 +89,22 @@ const MODIFIER_KEYS = new Set(['Shift', 'Meta', 'Control', 'Alt', 'CapsLock', 'E
  */
 const mousePlugin = ViewPlugin.fromClass(
   class {
+    /**
+     * Tipo del último puntero que pulsó en el editor. Los navegadores emulan un `mousedown` tras un
+     * toque, y el evento de ratón no dice de dónde viene; el `pointerdown` previo, sí.
+     */
+    private lastPointer = 'mouse';
     constructor(private view: EditorView) {
+      view.dom.addEventListener('pointerdown', this.onPointerDown, { capture: true });
       view.dom.addEventListener('mousedown', this.onMouseDown, { capture: true });
     }
     destroy() {
+      this.view.dom.removeEventListener('pointerdown', this.onPointerDown, { capture: true });
       this.view.dom.removeEventListener('mousedown', this.onMouseDown, { capture: true });
     }
+    private onPointerDown = (event: PointerEvent) => {
+      this.lastPointer = event.pointerType;
+    };
     private onMouseDown = (event: MouseEvent) => {
       if (event.button !== 0) return;
       const { view } = this;
@@ -108,10 +118,11 @@ const mousePlugin = ViewPlugin.fromClass(
       }
       // Clic en los márgenes o en el padding: el cursor se retira del texto. Se cancela el evento
       // para que ni el navegador ni CodeMirror muevan la selección o inicien una selección por
-      // arrastre. El editor conserva (o recibe) el foco para que al teclear el cursor reaparezca.
+      // arrastre. Con ratón, el editor conserva (o recibe) el foco para que al teclear el cursor
+      // reaparezca; con el dedo no se le da: abriría el teclado virtual sin que se haya tocado texto.
       setPlaced(false);
       event.preventDefault();
-      if (!view.hasFocus) view.focus();
+      if (!view.hasFocus && this.lastPointer === 'mouse') view.focus();
     };
   },
 );

@@ -22,6 +22,8 @@ export interface MenuOptions {
    * Si devuelve true, el menú se cierra y la tecla no llega al input.
    */
   onKey?: (e: KeyboardEvent) => boolean;
+  /** Texto si la lista está vacía (por defecto, «Nada que mostrar»). */
+  empty?: string;
 }
 
 /** Etiqueta de la fila que despliega las entradas secundarias (`MenuOptions.more`). */
@@ -29,6 +31,12 @@ export const MORE_LABEL = 'Más…';
 const MORE_ID = '__more';
 
 let current: { close: () => void } | null = null;
+/**
+ * Overlay recién cerrado que sigue en el DOM hasta el siguiente frame. Si en ese tiempo se abre
+ * otro panel (p. ej. «Títulos» desde el menú), lo sustituye sin animación: el velo no llega a
+ * desaparecer y no hay parpadeo entre un panel y el siguiente.
+ */
+let lingering: HTMLElement | null = null;
 
 export function closeOverlay(): void {
   current?.close();
@@ -48,9 +56,16 @@ export interface OverlayOptions {
 
 export function openOverlay(panel: HTMLElement, o: OverlayOptions = {}): { close: () => void } {
   closeOverlay();
+  // Sustituye a un panel que se acaba de cerrar: sin la entrada animada, para que el velo no parpadee.
+  const instant = lingering !== null;
+  lingering?.remove();
+  lingering = null;
   const overlay = el(
     'div',
-    { class: o.tall ? 'overlay overlay--tall' : 'overlay', attrs: { role: 'dialog', 'aria-modal': 'true' } },
+    {
+      class: ['overlay', o.tall && 'overlay--tall', instant && 'overlay--instant'].filter(Boolean).join(' '),
+      attrs: { role: 'dialog', 'aria-modal': 'true' },
+    },
     panel,
   );
   // El foco no debe salir del panel: con Tab se cicla dentro (patrón de diálogo modal).
@@ -85,7 +100,16 @@ export function openOverlay(panel: HTMLElement, o: OverlayOptions = {}): { close
   };
   const close = () => {
     if (current?.close !== close) return;
-    overlay.remove();
+    // Se quita en el siguiente frame (antes de pintar), no ya: si lo que cierra el panel abre otro
+    // en el mismo instante, este lo reemplaza sin que se vea el texto sin velo (ver `lingering`).
+    // Mientras tanto no responde a nada: los manejadores ya no están y deja pasar los clics.
+    overlay.style.pointerEvents = 'none';
+    lingering = overlay;
+    requestAnimationFrame(() => {
+      if (lingering !== overlay) return;
+      overlay.remove();
+      lingering = null;
+    });
     document.removeEventListener('keydown', onKey, true);
     current = null;
     o.onClose?.();
@@ -110,7 +134,7 @@ export function openOverlay(panel: HTMLElement, o: OverlayOptions = {}): { close
 
 /**
  * El menú de la aplicación: una lista navegable con flechas y Enter, sin buscador.
- * Cierre con Esc o clic fuera. Es el único menú de folio.
+ * Cierre con Esc o clic fuera. Es el único menú de folio (la lista de «Títulos» es otro uso de él).
  */
 export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
   const list = el('ul', { class: 'panel__list', tabIndex: -1, attrs: { role: 'listbox' } });
@@ -128,7 +152,7 @@ export function openMenu(o: MenuOptions, restoreFocus?: () => void): void {
   const render = () => {
     clear(list);
     if (filtered.length === 0) {
-      list.appendChild(el('li', { class: 'panel__empty' }, 'Nada que mostrar'));
+      list.appendChild(el('li', { class: 'panel__empty' }, o.empty ?? 'Nada que mostrar'));
       return;
     }
     filtered.forEach((item, i) => {

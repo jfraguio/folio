@@ -8,10 +8,11 @@ import { TabStates } from './TabStates';
 import { spellcheck, spellCompartment, wordAt } from '../editor/spellcheck';
 import { countDone } from '../editor/strikethrough';
 import { countWords, formatNumber } from '../text/words';
+import { exportFileName, findHeadings, toPlainText } from '../text/plain';
 import { zen, zenCompartment } from '../editor/zen';
 import { Autosave } from '../persistence/autosave';
 import { FileWatcher } from '../persistence/fileWatcher';
-import { LiveDraft } from '../persistence/liveDraft';
+import { LiveDraft, isUsableDraft } from '../persistence/liveDraft';
 import { VersionHistory, sha256 } from '../persistence/backups';
 import { resolveFileIdentity } from '../persistence/files';
 import { acquireFileLock } from '../persistence/locks';
@@ -38,6 +39,11 @@ export interface SessionOptions {
   adapter: FileAdapter;
   file: FolioFile;
   onExit: () => void;
+  /**
+   * El documento se ha guardado en otro archivo («Guardar en otro archivo…»): hay que abrir ese
+   * archivo en una sesión nueva (identidad, bloqueo, historial y borrador son los suyos).
+   */
+  onSwitch?: (file: FolioFile) => void;
 }
 
 /** Sesión de edición viva. `close()` guarda lo pendiente y libera todos los recursos (incluido el bloqueo). */
@@ -66,7 +72,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
   /** Texto que hay realmente en el disco; `raw` puede pasar a ser el borrador recuperado. */
   const diskText = raw;
   /** Hash de la versión del disco: el borrador solo se ofrece si parte de esta misma base. */
-  let baseHash = await sha256(diskText);
+  const diskHash = await sha256(diskText);
 
   // 2. Identidad, almacenamiento persistente y bloqueo. El historial va por nombre (`historyId`);
   // el bloqueo y el borrador, por archivo físico (`fileKey`).
@@ -131,9 +137,20 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     const backupReady = degraded ? Promise.resolve() : history.saveIfDue(diskText).then(() => {});
     if (!degraded) history.start();
 
-    // 4. Comprobación de borrador vivo (guarda el texto completo, diccionario incluido). Se busca
-    // por la clave del archivo físico; si no hay, por el id por nombre (borradores anteriores).
-    const liveDraft = new LiveDraft(fileKey, () => baseHash);
+    // 4. Borrador vivo: el texto completo (diccionario incluido) y el hash de la versión del disco
+    // de la que parte, que es la última leída o escrita (en modo degradado, siempre la abierta).
+    // `getText` y `autosave` se definen más abajo: el borrador solo los usa al vaciarse.
+    const draftBase = () => (degraded ? diskText : (autosave.savedText ?? diskText));
+    let hashed: { text: string; hash: Promise<string> } | null = null;
+    const draftBaseHash = () => {
+      const text = draftBase();
+      if (hashed?.text !== text) hashed = { text, hash: sha256(text) };
+      return hashed.hash;
+    };
+    const liveDraft = new LiveDraft(fileKey, () => getText(), draftBaseHash);
+
+    // Comprobación del borrador al abrir. Se busca por la clave del archivo físico; si no hay, por
+    // el id por nombre (borradores anteriores).
     let draft = await LiveDraft.read(fileKey);
     let draftKey = fileKey;
     if (!draft && fileKey !== historyId) {
@@ -141,9 +158,15 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       draftKey = historyId;
     }
     let recovered = false;
-    // `baseHash` ausente = borrador anterior al cambio: se acepta con la comprobación de siempre.
-    const draftFits = !!draft && (draft.baseHash === undefined || draft.baseHash === baseHash);
-    if (draft && draftFits && draft.ts > mtime && draft.text !== raw) {
+    if (draft && !isUsableDraft(draft)) {
+      // Borrador escrito por una versión con un fallo que guardaba un hash en lugar del texto.
+      void LiveDraft.remove(draftKey).catch(() => {});
+      draft = undefined;
+    }
+    // Se ofrece si parte de esta misma versión del disco (sin depender de la fecha del archivo, que
+    // los sincronizadores retocan). Los borradores antiguos, sin hash de base, si son posteriores.
+    const draftFits = !!draft && (draft.baseHash !== undefined ? draft.baseHash === diskHash : draft.ts > mtime);
+    if (draft && draftFits && draft.text !== raw) {
       // Esc o clic fuera = «Descartar»: la promesa nunca se queda sin resolver.
       recovered =
         (await openDialog(
@@ -153,8 +176,10 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
             { id: 'recover', label: 'Recuperar', primary: true },
           ],
         )) === 'recover';
+      // Descartado, se borra para que no vuelva a preguntar. Recuperado, pasa a vivir bajo la clave
+      // del archivo (el borrador nuevo lo sustituye); si estaba bajo la antigua, se borra esa.
       if (recovered) raw = draft.text;
-      else void LiveDraft.remove(draftKey).catch(() => {}); // que no vuelva a preguntar en la próxima apertura
+      if (!recovered || draftKey !== fileKey) void LiveDraft.remove(draftKey).catch(() => {});
     }
 
     // Las tabs son el documento; el diccionario viaja al final del archivo como comentario HTML.
@@ -351,8 +376,10 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     /** Texto que va al disco: las tabs más el bloque del diccionario (si tiene contenido). */
     const getText = () => {
       syncActive();
-      return joinDocument({ tabs, words: dictionary.list() });
+      return canonicalText();
     };
+    /** El documento tal y como se escribe en el archivo (sin volcar antes el editor). */
+    const canonicalText = () => joinDocument({ tabs, words: dictionary.list() });
     const markChanged = () => {
       liveDraft.schedule();
       if (!degraded) autosave.markDirty();
@@ -384,14 +411,15 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         saveStatus.set(degraded ? 'degraded' : state, info.lastSaved);
         if (state === 'saved') {
           lastErrorKind = undefined;
-          void liveDraft.clear();
+          // Con cambios hechos durante la escritura (aún sin guardar), el borrador se conserva.
+          if (!autosave.isDirty) void liveDraft.clear();
         }
       },
       // Alguien guardó después que nosotros: se descarta lo local y se carga lo del disco.
       onNewerOnDisk: () => reloadFromDisk({ unlessSaving: false }),
       onError: (kind) => {
         // Avisar solo al entrar en error o al cambiar de tipo; con el permiso revocado, si no,
-        // el aviso se repetiría cada ~1,5 s mientras se escribe.
+        // el aviso se repetiría en cada intento mientras se escribe.
         if (kind === lastErrorKind) return;
         lastErrorKind = kind;
         if (kind === 'permission')
@@ -403,9 +431,13 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
     disposers.push(() => autosave.dispose());
     if (degraded) saveStatus.set('degraded');
     // Lo "guardado" es lo que hay en el disco, no el borrador recuperado: así el primer flush
-    // detecta la diferencia y lo escribe de verdad.
-    else autosave.accept(mtime, diskText);
-    if (recovered && !degraded) autosave.markDirty(); // el borrador recuperado debe escribirse
+    // detecta la diferencia y lo escribe de verdad. Si no se recuperó nada, el documento cargado
+    // en su forma canónica también cuenta como guardado: abrir un archivo que no estaba en el
+    // formato de folio no lo reescribe hasta que el usuario cambie algo.
+    else autosave.accept(mtime, diskText, recovered ? diskText : canonicalText());
+    // El borrador recuperado debe escribirse; y, hasta que se escriba, seguir en el borrador (el
+    // `accept` de arriba acaba de borrarlo).
+    if (recovered) markChanged();
     dictionary.onChange(markChanged);
 
     // La marca «FOLIO» muestra al pasar el ratón el archivo abierto y la fecha de su última
@@ -510,8 +542,6 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       const split = splitDocument(fresh.text);
       const wordsBefore = dictionary.list();
       const prevHead = view.state.selection.main.head;
-      // El borrador pasa a partir de esta versión del disco.
-      void sha256(fresh.text).then((h) => (baseHash = h));
       tabs.splice(0, tabs.length, ...split.tabs);
       dictionary.load(split.words);
       // El disco puede traer menos tabs (o subtabs) de las que había: la activa no puede quedar fuera.
@@ -531,7 +561,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       const now = new Set(dictionary.list());
       for (const w of wordsBefore) if (!now.has(w)) spell.forget(w);
       rescanSpell();
-      autosave.accept(fresh.mtime, fresh.text);
+      autosave.accept(fresh.mtime, fresh.text, canonicalText());
     };
 
     /**
@@ -581,18 +611,79 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       if (!touch) view.focus();
     };
 
+    /**
+     * Guarda el documento en un archivo nuevo elegido por el usuario (en modo degradado, lo
+     * descarga). Con File System Access, el archivo nuevo pasa a ser el abierto: se acepta lo
+     * escrito (así al cerrar esta sesión no se reintenta el archivo anterior) y se abre en una
+     * sesión nueva, con su propia identidad, bloqueo, historial y borrador.
+     */
     const saveAs = async () => {
       const t = getText();
-      const f = await adapter.saveAs(t, file.name || DEFAULT_FOLIO_NAME);
-      if (!f) return;
-      file = f;
-      if (!degraded) {
-        const m = adapter.mtime ? await adapter.mtime(f) : Date.now();
-        autosave.accept(m, t);
-        notice(`Guardado en ${f.name}`);
-      } else {
-        notice('Descargado.');
+      let f: FolioFile | null;
+      try {
+        f = await adapter.saveAs(t, file.name || DEFAULT_FOLIO_NAME);
+      } catch (e) {
+        console.error(e);
+        notice('No se pudo guardar el archivo.');
+        return;
       }
+      if (!f) return;
+      if (degraded) {
+        notice('Descargado.');
+        return;
+      }
+      file = f;
+      const m = adapter.mtime ? await adapter.mtime(f).catch(() => Date.now()) : Date.now();
+      autosave.accept(m, t);
+      notice(`Guardado en ${f.name}`);
+      o.onSwitch?.(f);
+    };
+
+    /**
+     * Lleva la línea `n` (desde 1) al principio de la pantalla, justo bajo la barra de tabs (que es
+     * fija y tapa la parte de arriba del editor), y deja el cursor al principio de ella.
+     */
+    const scrollToLine = (n: number) => {
+      if (n < 1 || n > view.state.doc.lines) return;
+      const { from } = view.state.doc.line(n);
+      const bar = tabBar.root.getBoundingClientRect().height;
+      view.dispatch({
+        selection: { anchor: from },
+        effects: EditorView.scrollIntoView(from, { y: 'start', yMargin: bar + 8 }),
+      });
+    };
+
+    /**
+     * «Títulos»: los títulos de la tab abierta en una lista con el mismo aspecto que el menú. Si hay
+     * varios con el mismo texto se listan todos, en su orden, cada uno lleva a su propia línea y a la
+     * derecha se indica cuál es («1 de 2», «2 de 2»).
+     */
+    const openHeadings = () => {
+      const headings = findHeadings(view.state.doc.iterLines());
+      const total = new Map<string, number>();
+      for (const h of headings) total.set(h.text, (total.get(h.text) ?? 0) + 1);
+      const seen = new Map<string, number>();
+      const items: MenuItem[] = headings.map((h) => {
+        const k = (seen.get(h.text) ?? 0) + 1;
+        seen.set(h.text, k);
+        const of = total.get(h.text)!;
+        return { id: String(h.line), label: h.text, meta: of > 1 ? `${k} de ${of}` : undefined };
+      });
+      openMenu(
+        {
+          items,
+          empty: activeSub >= 0 ? 'Esta subpestaña no tiene títulos' : 'Esta pestaña no tiene títulos',
+          onSelect: (item) => scrollToLine(Number(item.id)),
+        },
+        focusEditor,
+      );
+    };
+
+    /** «Exportar pestaña»: descarga la tab (o subtab) abierta como texto plano, `‹título›.txt`. */
+    const exportActive = () => {
+      const text = view.state.doc.toString();
+      const fallback = activeSub >= 0 ? `Subpestaña ${activeSub + 1}` : `Pestaña ${activeTab + 1}`;
+      download(toPlainText(text), exportFileName(text, fallback), FOLIO_MIME);
     };
 
     commands.register(
@@ -642,12 +733,12 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           );
         },
       },
-      // El orden de registro es el del menú: Modo zen, Tema, Pantalla completa, Corrector,
-      // Diccionario, Crear pestaña, Crear subpestaña, Eliminar pestaña, Historial, Instrucciones;
-      // después, las opciones que solo aparecen en situaciones concretas (palabra bajo el cursor,
-      // modo degradado, error de guardado). Las marcadas con `more` (Corrector, Diccionario,
-      // crear/eliminar tabs, Historial e Instrucciones) no se ven de entrada: van al final, detrás
-      // de «Más…», en este mismo orden.
+      // El orden de registro es el del menú: Modo zen, Tema, Pantalla completa, Títulos, Corrector,
+      // Diccionario, Crear pestaña, Crear subpestaña, Eliminar pestaña, Exportar pestaña, Historial,
+      // Instrucciones; después, las opciones que solo aparecen en situaciones concretas (palabra bajo
+      // el cursor, modo degradado, y «Reintentar guardado» y «Guardar en otro archivo…» tras un error
+      // de guardado). Las marcadas con `more` (de Títulos a Instrucciones) no se ven de entrada: van
+      // al final, detrás de «Más…», en este mismo orden.
       {
         id: 'zen.toggle',
         label: () => (prefs.get('zen') ? 'Desactivar modo zen' : 'Modo zen'),
@@ -673,6 +764,13 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
             notice('El navegador no permite la pantalla completa aquí.');
           }
         },
+      },
+      {
+        id: 'headings',
+        label: 'Títulos',
+        keywords: 'índice ir saltar encabezados secciones',
+        more: true,
+        run: () => openHeadings(),
       },
       {
         id: 'spell.toggle',
@@ -715,6 +813,15 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         when: () => canRemoveActive(),
         more: true,
         run: () => removeActive(),
+      },
+      {
+        id: 'tab.export',
+        label: () => (activeSub >= 0 ? 'Exportar subpestaña' : 'Exportar pestaña'),
+        keywords: 'descargar texto plano txt',
+        // Una tab vacía no tiene nada que exportar.
+        when: () => /\S/.test(view.state.doc.toString()),
+        more: true,
+        run: () => exportActive(),
       },
       {
         id: 'history',
@@ -796,8 +903,10 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       },
       {
         id: 'save.as',
-        label: 'Guardar como…',
-        hidden: true, // se ofrece solo desde la recuperación de errores
+        label: 'Guardar en otro archivo…',
+        // Salida de cualquier error de guardado (permiso denegado, archivo movido…); en modo
+        // degradado guardar ya es descargar.
+        when: () => !degraded && autosave.state === 'error',
         run: saveAs,
       },
       // Tabs por atajo (⌘1…⌘0 / Ctrl+1…Ctrl+0) y subtabs de la tab abierta (⌘⌥1…⌘⌥0 / Ctrl+Alt+1…0);

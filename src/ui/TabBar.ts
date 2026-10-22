@@ -1,4 +1,5 @@
 import { el } from './el';
+import { prefersReducedMotion } from './env';
 import { TAB_COUNT, type Tab } from '../persistence/folioFormat';
 import { WORD_RE } from '../text/conventions';
 
@@ -131,6 +132,6 @@ export class TabBar {
     const btn = this.activeSub >= 0 ? this.subButtons[this.activeSub] : this.buttons[this.activeTab];
     if (!btn || this.strip.scrollWidth <= this.strip.clientWidth) return;
     if (typeof btn.scrollIntoView !== 'function') return;
-    btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   }
 }

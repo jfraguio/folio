@@ -238,12 +238,20 @@ export const linkCursor = EditorState.transactionFilter.of((tr: Transaction) => 
 });
 
 /**
+ * Marca una edición del usuario que ya construye la sintaxis de enlace completa y válida (pegar una
+ * URL sobre una selección, `linkSelection`): `linkIntegrity` no debe recortarla, porque cambiar la
+ * URL de un enlace es precisamente tocar su parte oculta.
+ */
+const linkSyntaxEdit = Annotation.define<boolean>();
+
+/**
  * Protege la sintaxis oculta de los enlaces frente a las ediciones del usuario (teclado, cortar,
  * escribir sobre una selección, el teclado de Android…), según `protectRange`. Las transacciones
  * que no son del usuario (deshacer, cargar del disco) pasan tal cual.
  */
 export const linkIntegrity = EditorState.transactionFilter.of((tr: Transaction) => {
   if (!tr.docChanged || !(tr.isUserEvent('input') || tr.isUserEvent('delete'))) return tr;
+  if (tr.annotation(linkSyntaxEdit)) return tr;
   const state = tr.startState;
   const dir = tr.isUserEvent('delete.backward') ? 'backward' : tr.isUserEvent('delete.forward') ? 'forward' : null;
   const specs: ChangeSpec[] = [];
@@ -333,6 +341,7 @@ export function linkSelection(state: EditorState, url: string): TransactionSpec 
       return { changes: { from: p.from, to: p.to, insert: p.insert }, range: EditorSelection.cursor(p.end) };
     }),
     userEvent: 'input.paste',
+    annotations: linkSyntaxEdit.of(true),
     scrollIntoView: true,
   };
 }

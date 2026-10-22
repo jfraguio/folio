@@ -66,8 +66,20 @@ describe('folioFormat', () => {
     const d = splitDocument(joinDocument(doc(many)));
     expect(d.tabs).toHaveLength(TAB_COUNT);
     expect(d.tabs[TAB_COUNT - 1]!.text).toBe(`t${TAB_COUNT}`);
-    // Un marcador por encima del máximo (editado a mano) no crea tabs de más.
-    expect(splitDocument('[todo:tab 1]\na\n[todo:tab 99]\nz').tabs).toHaveLength(TAB_COUNT);
+  });
+
+  it('un marcador fuera de rango (editado a mano) es texto: no crea tabs ni se pierde nada', () => {
+    const raw = '[todo:tab 1]\na\n[todo:tab 99]\nz\n[todo:tab 0]\ncero\n[todo:tab 2]\nb';
+    const d = splitDocument(raw);
+    expect(d.tabs).toEqual(plain('a\n[todo:tab 99]\nz\n[todo:tab 0]\ncero', 'b'));
+    // Al escribir se escapan (no son estructura, pero lo parecen) y la vuelta lo deja igual.
+    const out = joinDocument(d);
+    expect(out).toBe('[todo:tab 1]\na\n\\[todo:tab 99]\nz\n\\[todo:tab 0]\ncero\n[todo:tab 2]\nb');
+    expect(splitDocument(out).tabs).toEqual(d.tabs);
+    // Un archivo que empieza por uno de ellos es texto plano: todo va a la tab 1.
+    expect(splitDocument('[todo:tab 11]\nx\n[todo:tab 1]\ny').tabs).toEqual(plain('[todo:tab 11]\nx\n[todo:tab 1]\ny'));
+    // Ceros a la izquierda: siguen siendo marcadores.
+    expect(splitDocument('[todo:tab 01]\nuno\n[todo:tab 002]\ndos').tabs).toEqual(plain('uno', 'dos'));
   });
 
   describe('subtabs', () => {
@@ -99,7 +111,11 @@ describe('folioFormat', () => {
       const many = Array.from({ length: TAB_COUNT + 2 }, (_, i) => `s${i + 1}`);
       const d = splitDocument(joinDocument(doc([T('a', many)])));
       expect(d.tabs[0]!.subs).toHaveLength(TAB_COUNT);
-      expect(splitDocument('[todo:tab 1]\n[todo:tab 1.99]\nz').tabs[0]!.subs).toHaveLength(TAB_COUNT);
+      // Un marcador de subtab fuera de rango es texto de la subtab (o tab) anterior.
+      expect(splitDocument('[todo:tab 1]\n[todo:tab 1.99]\nz').tabs).toEqual([T('[todo:tab 1.99]\nz')]);
+      expect(splitDocument('[todo:tab 1]\n[todo:tab 1.1]\ns\n[todo:tab 1.0]\nz').tabs).toEqual([
+        T('', ['s\n[todo:tab 1.0]\nz']),
+      ]);
     });
 
     it('abrir y guardar un archivo con subtabs no lo cambia', () => {
