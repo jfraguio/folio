@@ -359,6 +359,63 @@ test('el corrector marca una palabra inventada', async ({ page }) => {
   await expect(page.locator('.cm-misspelled')).toHaveCount(1, { timeout: 6000 });
 });
 
+/** Cambia el archivo del "disco" desde fuera de folio (otro dispositivo, Google Drive…). */
+async function touchDisk(page: Page, change: { content?: string }): Promise<void> {
+  await page.evaluate((c) => {
+    const s = new Map<string, { content: string; lastModified: number }>(
+      JSON.parse(localStorage.getItem('__fs') || '[]'),
+    );
+    const e = s.get('folio.txt')!;
+    s.set('folio.txt', { content: c.content ?? e.content, lastModified: e.lastModified + 60_000 });
+    localStorage.setItem('__fs', JSON.stringify([...s]));
+  }, change);
+  // Al recuperar el foco, folio comprueba el mtime de inmediato (sin esperar los 10 s del sondeo).
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+}
+
+async function waitSaved(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => document.querySelector('.status-dot')?.getAttribute('data-state') === 'saved',
+    null,
+    {
+      timeout: 5000,
+    },
+  );
+}
+
+test('un mtime nuevo con el mismo contenido (Google Drive) no avisa ni recarga', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.type('Compra semanal');
+  await waitSaved(page);
+
+  await touchDisk(page, {});
+  await page.waitForTimeout(300);
+  await expect(page.locator('.notice--visible')).toHaveCount(0);
+  await expect(page.locator('.cm-content')).toHaveText('Compra semanal');
+
+  // También con cambios locales aún sin guardar: no se pierden y se escriben.
+  await page.keyboard.type(' y fruta');
+  await touchDisk(page, {});
+  await page.waitForTimeout(300);
+  await expect(page.locator('.notice--visible')).toHaveCount(0);
+  await waitSaved(page);
+  expect(await page.evaluate(() => window.__fsRead('folio.txt'))).toContain('Compra semanal y fruta');
+});
+
+test('un cambio externo real del contenido se carga y avisa', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.type('Compra semanal');
+  await waitSaved(page);
+
+  await touchDisk(page, { content: '[todo:tab 1]\nDesde otro equipo' });
+  await expect(page.locator('.notice--visible')).toContainText('El archivo cambió en otro dispositivo');
+  await expect(page.locator('.cm-content')).toHaveText('Desde otro equipo');
+});
+
 test('reabrir conserva el contenido y las tabs', async ({ page }) => {
   await page.goto('/');
   await createFile(page);

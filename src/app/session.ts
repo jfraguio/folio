@@ -536,16 +536,21 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
 
     /**
      * Relee el archivo y lo vuelca en el editor. Lo usan el sondeo y el autosave.
-     * Con `unlessSaving`, si durante la lectura arrancó una escritura propia se desiste: esa
-     * escritura hace su propia comprobación de mtime y, si procede, recargará ella.
+     * Con `unlessSaving`, si durante la lectura hubo una escritura propia (en vuelo o ya terminada)
+     * se desiste: lo leído puede ser anterior a esa escritura y compararlo con lo último guardado
+     * daría un falso cambio externo. La escritura hace su propia comprobación de mtime y, si no,
+     * el siguiente ciclo del sondeo vuelve a mirar.
      */
     const reloadFromDisk = async ({ unlessSaving }: { unlessSaving: boolean }) => {
+      const knownBefore = autosave.lastKnownMtime;
       const fresh = await adapter.read(file);
-      if (unlessSaving && autosave.state === 'saving') return;
-      // El mtime cambió pero el contenido es el mismo que ya teníamos (iCloud reescribe la fecha
-      // sin tocar el texto): se acepta la fecha nueva en silencio, sin recargar ni avisar.
+      if (unlessSaving && (autosave.state === 'saving' || autosave.lastKnownMtime !== knownBefore)) return;
+      // El mtime cambió pero el contenido es el mismo que lo último guardado (Google Drive, iCloud y
+      // otros sincronizadores retocan la fecha sin tocar el texto): solo se actualiza el mtime
+      // conocido, sin recargar ni avisar. No se usa `accept()`: marcaría como guardados cambios
+      // locales pendientes (y borraría su borrador) si el usuario está escribiendo.
       if (autosave.isSameAsSaved(fresh.text)) {
-        autosave.accept(fresh.mtime, fresh.text);
+        autosave.lastKnownMtime = fresh.mtime;
         return;
       }
       applyDiskVersion(fresh);
