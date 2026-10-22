@@ -1,0 +1,19 @@
+tests/e2e/folio.spec.ts
+  s_11aa0dfc91653a::t_ecb9f792656afe 362-418
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "38426af1f2ada2b2c1e4f80cc6c885e8ad868e7f",
+  "prompts": {},
+  "sessions": {
+    "s_11aa0dfc91653a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_e9d4fbdbaffepaS0vdXqx8Z27Z",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "franciscojfc <jfraguio@gmail.com>"
+    }
+  }
+}
