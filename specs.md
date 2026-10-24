@@ -554,7 +554,7 @@ Pantalla completa, tema, zen, Títulos y exportar no tienen atajo: solo el menú
 
 ### 3.17. PWA y funcionamiento sin conexión
 
-- Instalable: nombre y nombre corto «FOLIO», descripción «Un bloc de notas persistente y silencioso.», `display: standalone`, `lang: es`, `start_url` y `scope` en la ruta base, colores `#F5F4F0`, iconos de §2.10.
+- Instalable: nombre y nombre corto «Folio», descripción «Un bloc de notas persistente y silencioso.», `display: standalone`, `lang: es`, `start_url` y `scope` en la ruta base, colores `#F5F4F0`, iconos de §2.10.
 - Service Worker (`registerType: 'prompt'`): la app (HTML, JS, CSS, SVG, PNG y fuentes; hasta 3 MB por archivo) se guarda en caché al instalarse. El diccionario ortográfico se guarda la primera vez que se usa (caché `todo-dictionaries`, primero la caché, 2 entradas). Todo funciona sin conexión.
 - **Actualizaciones**: cuando hay una versión nueva esperando, se aplica recargando la página, pero solo si la página está visible, no hay ningún panel abierto y no hay cambios sin guardar. Se comprueba cada 2 s, al volver a la pestaña y al abrir un archivo desde el sistema.
 - Abre archivos desde el sistema (§3.1) con `file_handlers` y `launchQueue`.

@@ -39,8 +39,8 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'FOLIO',
-        short_name: 'FOLIO',
+        name: 'Folio',
+        short_name: 'Folio',
         description: 'Un bloc de notas persistente y silencioso.',
         lang: 'es',
         start_url: base,
