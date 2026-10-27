@@ -454,6 +454,8 @@ Pensado para archivos en iCloud Drive, Google Drive u otras carpetas sincronizad
 | **Modo zen** / **Desactivar modo zen** | Siempre | Activa o desactiva el zen (§2.5) |
 | **Tema oscuro** / **Tema claro** | Siempre | Cambia al otro tema y lo fija (deja de seguir al sistema; no hay forma de volver a `system` desde la interfaz) |
 | **Pantalla completa** / **Salir de pantalla completa** | El navegador tiene la API (no en iPhone) | Si falla: «El navegador no permite la pantalla completa aquí.» |
+| **Desencriptar pestaña** | La tab abierta contiene algún bloque cifrado | §3.22 |
+| **Encriptar pestaña** | La tab abierta tiene al menos un bloque pendiente con sintaxis válida | §3.22 |
 | **Añadir «palabra» al diccionario** | Corrector activado y cursor sobre una palabra | §3.9 |
 | **Descargar el .txt** | Modo degradado | Descarga el documento entero con el nombre del archivo abierto (con su extensión), sin aviso |
 | **Reintentar guardado** | Tras un error de guardado | §3.4 |
@@ -599,6 +601,16 @@ Pantalla completa, tema, zen, Títulos y exportar no tienen atajo: solo el menú
   - Las viñetas `*` y `+` pasan a `-`; las listas numeradas y las de `-` se dejan.
   - Enlaces: `[texto](url)` → `texto (url)` (solo `texto` si ya es la URL); imágenes → su texto alternativo; `<url>` → `url`. Un enlace con un esquema no permitido se deja tal cual.
 
+### 3.22. Bloques cifrados
+
+- **Sintaxis pendiente de cifrar**: `<secret:contraseña>` en una línea y `</secret:contraseña>` al cerrar. También se aceptan `</secret>` y `<secret>` como cierre; al descifrar se restaura siempre la forma explícita. El contenido entre las marcas se conserva **exactamente**, con sus espacios y saltos.
+- **Restricciones**: la contraseña no puede estar vacía, contener `>` (cierra la marca) ni saltos de línea. No se permiten bloques anidados; sí varios bloques por pestaña, con contraseñas iguales o distintas. Las marcas incompletas, los cierres sueltos o las contraseñas que no coinciden se explican en un diálogo y **no modifican nada**.
+- **Encriptar pestaña** (primer nivel del menú, solo si la tab abierta tiene al menos un bloque pendiente con sintaxis válida): valida todos los bloques pendientes, los cifra en memoria y solo entonces sustituye cada uno por una línea `<folio-secret:v1:pbkdf2-hmac-sha256:ITERACIONES:aes-256-gcm:SAL:IV:DATOS>`. El texto exterior y los bloques ya cifrados no se tocan. La contraseña no forma parte de la representación. El cambio pasa por el autoguardado habitual y el aviso es **«Pestaña encriptada.»**.
+- **Desencriptar pestaña** (primer nivel del menú, solo si la tab abierta contiene algún bloque cifrado): pide una contraseña en un panel (nunca se guarda). El panel solo muestra el título «Desencriptar pestaña», el campo con el placeholder «Contraseña» y los botones [Cancelar] [Desencriptar]. Prueba los bloques cifrados con los parámetros de cada uno y restaura la sintaxis `<secret:contraseña>…</secret:contraseña>` en los que se abran; los demás quedan intactos. Si se abren todos, no muestra ningún aviso. Si no se abre ninguno, avisa sin modificar el documento; si solo se abren algunos, indica cuántos se han descifrado y cuántos no. El texto restaurado y la contraseña vuelven al texto plano (y el autoguardado los guarda así): no es un desbloqueo temporal.
+- **Criptografía**: Web Crypto API, AES-256-GCM (etiqueta de 128 bits), PBKDF2-HMAC-SHA-256 con sal aleatoria de 16 bytes por bloque, IV aleatorio de 12 bytes por operación y **600.000 iteraciones** (mínimo inicial). Los parámetros se autentican como AAD; un bloque manipulado falla la autenticación y se conserva intacto. Todo va en Base64 dentro de una sola línea, para que el `.txt` siga siendo texto plano.
+- **Protección**: los bloques cifrados se pintan en monoespaciada tenue, el cursor los salta y no se pueden editar a medias; se pueden seleccionar y borrar enteros. Si un bloque se daña, se subraya y se conserva para no perder la posibilidad de repararlo.
+- **Límites**: cifrar el contenido actual **no borra copias anteriores**. El historial, el borrador vivo, el deshacer del editor y los archivos sincronizados pueden conservar el texto en claro y la contraseña escrita o usada al descifrar. Esa limpieza hay que hacerla por separado.
+
 ---
 
 ## 4. Textos de la interfaz
@@ -608,7 +620,7 @@ Pantalla completa, tema, zen, Títulos y exportar no tienen atajo: solo el menú
 | Borrador | «Hay cambios sin guardar de ‹hace X›. ¿Quieres recuperarlos?» · [Descartar] [Recuperar] |
 | Bloqueo | «Este archivo ya está abierto en otra pestaña.» · [Volver] [Editar aquí] |
 | Cedido | «Este archivo se está editando en otra pestaña.» |
-| Avisos (3,5 s salvo que se indique) | «No se pudo abrir el archivo.» · «Algo ha fallado al acceder al archivo.» · «Sin permiso para abrir el archivo.» · «El archivo ya no está disponible.» · «El archivo cambió en otro dispositivo: se ha cargado la versión más reciente.» · «folio perdió el permiso de escritura. Pulsa el punto de estado para recuperarlo.» (6 s) · «El archivo ya no está donde estaba. Pulsa el punto de estado para guardarlo en otro sitio.» (6 s) · «Sin permiso de escritura. Puedes guardar en otro archivo desde el menú.» · «Guardado en ‹nombre›» · «No se pudo guardar el archivo.» · «Descargado.» · «No se pudo cargar el diccionario ortográfico.» · ««‹palabra›» añadida al diccionario.» · «El navegador no permite la pantalla completa aquí.» · «Versión guardada.» · «Sin cambios desde la última versión.» · «No se pudo guardar la versión.» · «Versión guardada en ‹nombre›» · «La versión ya no está disponible.» · «No se pudo descargar la versión.» · Bloqueo rechazado o sin respuesta (8 s, §3.12) |
+| Avisos (3,5 s salvo que se indique) | «Pestaña encriptada.» · «No se pudo abrir el archivo.» · «Algo ha fallado al acceder al archivo.» · «Sin permiso para abrir el archivo.» · «El archivo ya no está disponible.» · «El archivo cambió en otro dispositivo: se ha cargado la versión más reciente.» · «folio perdió el permiso de escritura. Pulsa el punto de estado para recuperarlo.» (6 s) · «El archivo ya no está donde estaba. Pulsa el punto de estado para guardarlo en otro sitio.» (6 s) · «Sin permiso de escritura. Puedes guardar en otro archivo desde el menú.» · «Guardado en ‹nombre›» · «No se pudo guardar el archivo.» · «Descargado.» · «No se pudo cargar el diccionario ortográfico.» · ««‹palabra›» añadida al diccionario.» · «El navegador no permite la pantalla completa aquí.» · «Versión guardada.» · «Sin cambios desde la última versión.» · «No se pudo guardar la versión.» · «Versión guardada en ‹nombre›» · «La versión ya no está disponible.» · «No se pudo descargar la versión.» · Bloqueo rechazado o sin respuesta (8 s, §3.12) |
 | Listas vacías | «Nada que mostrar» · «Esta pestaña no tiene títulos» / «Esta subpestaña no tiene títulos» · «El diccionario personal está vacío.» · «Todavía no hay versiones de este archivo.» · «No se pudo leer el historial.» |
 | Estado del guardado | «Guardado hace…» / «Guardado» · «Cambios sin guardar» · «Guardando…» · «No se pudo guardar · pulsa para resolver» · «Borrador local · descarga el .txt desde el menú» · «Estado del guardado» (`aria-label` sin estado) |
 | Etiquetas accesibles | «Menú (⌘K)» / «Menú (Ctrl+K)» / «Menú» · «TO-DOs resueltos» · «Palabras» · «Quitar del diccionario» |
@@ -628,6 +640,7 @@ Pantalla completa, tema, zen, Títulos y exportar no tienen atajo: solo el menú
 | Comprobación de cambios externos | 10 s, y al volver a la pestaña o recuperar el foco |
 | Espera de respuesta de la otra pestaña / reintentos al tomar el bloqueo | 3 s / 10 × 50 ms |
 | Intervalo del historial / versiones guardadas | 1 h / 50 |
+| Cifrado de bloques | AES-256-GCM (etiqueta 128 bits), PBKDF2-HMAC-SHA-256, 600.000 iteraciones, sal 16 B, IV 12 B |
 | Handles recordados por nombre | 20 |
 | Retardo del corrector / margen revisado / espera máxima para cargar el diccionario | 400 ms / ±2.000 caracteres / 2 s |
 | Comprobación de actualizaciones de la app | 2 s |

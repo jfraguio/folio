@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4173;
+const PORT = Number(process.env.FOLIO_TEST_PORT ?? 4173);
 
 /**
  * E2E de folio: sirve `dist/` con `vite preview` y recorre el flujo real con un File System

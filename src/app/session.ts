@@ -4,6 +4,7 @@ import { FsAccessAdapter } from '../fs/FsAccessAdapter';
 import { download } from '../fs/download';
 import { isTouch } from '../ui/env';
 import { createEditor, createEditorState } from '../editor/createEditor';
+import { secretRewrite } from '../editor/secrets';
 import { TabStates } from './TabStates';
 import { spellcheck, spellCompartment, wordAt } from '../editor/spellcheck';
 import { countDone } from '../editor/strikethrough';
@@ -29,10 +30,13 @@ import { TabBar } from '../ui/TabBar';
 import { notice } from '../ui/Notice';
 import { openMenu, closeOverlay, isOverlayOpen, type MenuItem } from '../ui/Menu';
 import { openDialog } from '../ui/Dialog';
+import { openPasswordDialog } from '../ui/PasswordDialog';
 import { openDictionaryManager } from '../ui/DictionaryManager';
 import { openHistory } from '../ui/History';
 import { openHelp } from '../ui/Help';
 import { el, formatDateTime, relativeTime } from '../ui/el';
+import { applyTextEdits, findEncryptedSecrets, parsePendingSecrets } from '../secrets/format';
+import { decryptSecret, encryptSecret } from '../secrets/crypto';
 
 export interface SessionOptions {
   root: HTMLElement;
@@ -686,6 +690,145 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
       download(toPlainText(text), exportFileName(text, fallback), FOLIO_MIME);
     };
 
+    /** Sustituye el texto de la tab abierta y deja que el autoguardado haga el resto. */
+    const replaceActiveText = (next: string) => {
+      const head = Math.min(view.state.selection.main.head, next.length);
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: next },
+        selection: { anchor: head },
+        annotations: secretRewrite.of(true),
+      });
+      syncActive();
+    };
+
+    const explainSecretError = (message: string) =>
+      openDialog(
+        ['No se puede encriptar la pestaña.', message],
+        [{ id: 'ok', label: 'Entendido', primary: true }],
+        focusEditor,
+      );
+
+    /**
+     * «Encriptar pestaña»: valida y cifra todos los bloques pendientes de la tab abierta. Ningún
+     * cambio llega al documento hasta que todos los bloques están cifrados; los ya cifrados y el
+     * texto exterior quedan intactos.
+     */
+    const encryptActive = async () => {
+      const source = view.state.doc.toString();
+      const parsed = parsePendingSecrets(source);
+      if (parsed.error) {
+        await explainSecretError(parsed.error.message);
+        return;
+      }
+      if (!parsed.blocks.length) {
+        notice('No hay bloques pendientes de cifrar en esta pestaña.');
+        return;
+      }
+      const encrypted: string[] = [];
+      try {
+        for (const block of parsed.blocks) encrypted.push(await encryptSecret(block.content, block.password));
+      } catch {
+        notice('No se pudieron cifrar los bloques. La pestaña no se ha modificado.', 6000);
+        return;
+      }
+      // El usuario puede haber escrito (o haber recibido un cambio del disco) durante el cifrado.
+      if (view.state.doc.toString() !== source) {
+        notice('El texto cambió mientras se cifraba. La pestaña no se ha modificado.', 6000);
+        return;
+      }
+      replaceActiveText(
+        applyTextEdits(
+          source,
+          parsed.blocks.map((block, i) => ({ from: block.from, to: block.to, text: encrypted[i]! })),
+        ),
+      );
+      notice('Pestaña encriptada.');
+    };
+
+    /**
+     * «Desencriptar pestaña»: pide una contraseña y abre los bloques que la acepten. Los demás se
+     * conservan tal cual. La operación es atómica: si no se abre ninguno, el documento no cambia.
+     */
+    const decryptActive = async () => {
+      const source = view.state.doc.toString();
+      const found = findEncryptedSecrets(source);
+      if (!found.blocks.length && !found.issues.length) {
+        notice('No hay bloques cifrados en esta pestaña.');
+        return;
+      }
+      if (!found.blocks.some((b) => b.payload)) {
+        const problems = [
+          ...found.blocks.filter((b) => !b.payload).map((b) => b.problem ?? 'El bloque cifrado está dañado.'),
+          ...found.issues.map((i) => i.message),
+        ];
+        await openDialog(
+          ['No hay ningún bloque cifrado que se pueda leer.', ...problems],
+          [{ id: 'ok', label: 'Entendido', primary: true }],
+          focusEditor,
+        );
+        return;
+      }
+      const password = await openPasswordDialog({
+        title: 'Desencriptar pestaña',
+        confirmLabel: 'Desencriptar',
+        restoreFocus: focusEditor,
+      });
+      if (password === null) return;
+      if (view.state.doc.toString() !== source) {
+        notice('El texto cambió mientras se pedía la contraseña. Inténtalo de nuevo.', 6000);
+        return;
+      }
+
+      const edits: { from: number; to: number; text: string }[] = [];
+      let opened = 0;
+      let failed = 0;
+      for (const block of found.blocks) {
+        if (!block.payload) {
+          failed++;
+          continue;
+        }
+        try {
+          const plain = await decryptSecret(block.raw, password);
+          // El contenido guardado incluye exactamente los saltos que había entre las marcas.
+          edits.push({
+            from: block.from,
+            to: block.to,
+            text: `<secret:${password}>${plain}</secret:${password}>`,
+          });
+          opened++;
+        } catch {
+          failed++;
+        }
+      }
+
+      if (!opened) {
+        notice('La contraseña no permite descifrar ninguno de los bloques.', 6000);
+        return;
+      }
+      if (view.state.doc.toString() !== source) {
+        notice('El texto cambió durante el descifrado. Inténtalo de nuevo.', 6000);
+        return;
+      }
+      replaceActiveText(applyTextEdits(source, edits));
+      // Si todo se ha abierto, no hay aviso: el resultado se ve directamente en el editor. Solo se
+      // informa cuando parte del contenido no se ha podido descifrar.
+      const remaining = failed + found.issues.length;
+      if (remaining > 0) {
+        const openedText = opened === 1 ? '1 bloque se ha descifrado' : `${opened} bloques se han descifrado`;
+        const remainingText =
+          remaining === 1 ? '1 bloque no se ha podido descifrar' : `${remaining} bloques no se han podido descifrar`;
+        notice(`${openedText}. ${remainingText}.`, 8000);
+      }
+    };
+
+    /** Hay al menos un bloque pendiente con sintaxis válida (sin marcas incompletas alrededor). */
+    const hasPendingSecretMarks = () => {
+      const parsed = parsePendingSecrets(view.state.doc.toString());
+      return !parsed.error && parsed.blocks.length > 0;
+    };
+    /** La tab abierta contiene alguna representación cifrada. */
+    const hasEncryptedSecretText = () => findEncryptedSecrets(view.state.doc.toString()).blocks.length > 0;
+
     commands.register(
       {
         id: 'menu',
@@ -733,12 +876,13 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
           );
         },
       },
-      // El orden de registro es el del menú: Modo zen, Tema, Pantalla completa, Títulos, Corrector,
-      // Diccionario, Crear pestaña, Crear subpestaña, Eliminar pestaña, Exportar pestaña, Historial,
-      // Instrucciones; después, las opciones que solo aparecen en situaciones concretas (palabra bajo
-      // el cursor, modo degradado, y «Reintentar guardado» y «Guardar en otro archivo…» tras un error
-      // de guardado). Las marcadas con `more` (de Títulos a Instrucciones) no se ven de entrada: van
-      // al final, detrás de «Más…», en este mismo orden.
+      // El orden de registro es el del menú: Modo zen, Tema, Pantalla completa, Desencriptar pestaña,
+      // Encriptar pestaña, Títulos, Corrector, Diccionario, Crear pestaña, Crear subpestaña, Eliminar
+      // pestaña, Exportar pestaña, Historial, Instrucciones; después, las opciones que solo aparecen
+      // en situaciones concretas (palabra bajo el cursor, modo degradado, y «Reintentar guardado» y
+      // «Guardar en otro archivo…» tras un error de guardado). Encriptar y Desencriptar están en el
+      // primer nivel, como las opciones generales. Las marcadas con `more` (de Títulos a Instrucciones)
+      // no se ven de entrada: van al final, detrás de «Más…», en este mismo orden.
       {
         id: 'zen.toggle',
         label: () => (prefs.get('zen') ? 'Desactivar modo zen' : 'Modo zen'),
@@ -764,6 +908,20 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
             notice('El navegador no permite la pantalla completa aquí.');
           }
         },
+      },
+      {
+        id: 'secrets.decrypt',
+        label: 'Desencriptar pestaña',
+        keywords: 'descifrar bloques contraseña secreto privacidad',
+        when: hasEncryptedSecretText,
+        run: decryptActive,
+      },
+      {
+        id: 'secrets.encrypt',
+        label: 'Encriptar pestaña',
+        keywords: 'cifrar bloques contraseña secreto privacidad',
+        when: hasPendingSecretMarks,
+        run: encryptActive,
       },
       {
         id: 'headings',

@@ -6,6 +6,7 @@ import { spellCompartment } from './spellcheck';
 import { links } from './links';
 import { richCopy } from './copy';
 import { strikethrough } from './strikethrough';
+import { secretBlocks } from './secrets';
 import { zen, zenCompartment } from './zen';
 
 export interface EditorConfig {
@@ -40,6 +41,7 @@ export function editorExtensions(o: EditorConfig = {}): Extension[] {
     links(),
     richCopy(),
     strikethrough(),
+    secretBlocks(),
     EditorState.tabSize.of(4),
     keymap.of([{ key: 'Tab', run: insertTab }, ...defaultKeymap, ...historyKeymap]),
     spellCompartment.of(o.spell ?? []),

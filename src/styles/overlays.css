@@ -203,6 +203,23 @@
   color: var(--fg-dim);
 }
 
+/* Campo de contraseña de los bloques cifrados. */
+.secret-input {
+  width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+
+.secret-input:focus {
+  outline: 1px solid var(--fg-dim);
+  outline-offset: 1px;
+}
+
 /* ---------- Gestión del diccionario ---------- */
 
 .dict {
@@ -310,6 +327,20 @@
 
 .help__text {
   margin: 0 0 0.5rem;
+}
+
+.help__code {
+  margin: 0 0 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--fg-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Muestra (o atajo) a la izquierda, en una columna de ancho fijo; la explicación a la derecha. */

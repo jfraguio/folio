@@ -63,6 +63,9 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(FS_SHIM);
 });
 
+/** Contenido de un archivo de folio con una única tab. */
+const fileWith = (body: string) => `[todo:tab 1]\n${body}`;
+
 /** Abre un archivo nuevo y espera al editor. */
 async function createFile(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: 'NEW', exact: true })).toBeVisible();
@@ -181,6 +184,7 @@ test('las opciones secundarias quedan detrás de «Más…»', async ({ page }) 
   await page.waitForSelector('.panel__item');
   let labels = await page.locator('.panel__item .panel__label').allTextContents();
   for (const l of secondary) expect(labels).not.toContain(l);
+  expect(labels).not.toContain('Desencriptar pestaña');
   expect(labels.at(-1)).toBe('Más…');
 
   // «Más…» no cierra el menú: sustituye su fila por las secundarias y activa la primera.
@@ -188,8 +192,9 @@ test('las opciones secundarias quedan detrás de «Más…»', async ({ page }) 
   labels = await page.locator('.panel__item .panel__label').allTextContents();
   expect(labels).not.toContain('Más…');
   for (const l of secondary) expect(labels).toContain(l);
-  // Con la tab vacía no hay nada que exportar.
+  // Con la tab vacía no hay nada que exportar ni bloques que encriptar.
   expect(labels).not.toContain('Exportar pestaña');
+  expect(labels).not.toContain('Encriptar pestaña');
   await expect(page.locator('.panel__item--active .panel__label')).toHaveText('Títulos');
   await page.keyboard.press('Escape');
 
@@ -317,8 +322,17 @@ test('«Instrucciones» abre un panel con las convenciones y los atajos', async 
   await runMenu(page, 'Instrucciones');
   const panel = page.locator('.panel');
   await expect(panel.locator('.panel__header')).toHaveText('Instrucciones');
-  await expect(panel.locator('.help__title')).toHaveText(['Escribir', 'Pestañas', 'Atajos', 'Zen', 'Historial']);
+  await expect(panel.locator('.help__title')).toHaveText([
+    'Escribir',
+    'Pestañas',
+    'Bloques cifrados',
+    'Atajos',
+    'Zen',
+    'Historial',
+  ]);
   await expect(panel.locator('.help__sample--heading')).toHaveText('# Semana');
+  await expect(panel.locator('.help__code')).toContainText('<secret:contraseña>');
+  await expect(panel.locator('.help__code')).toContainText('</secret:contraseña>');
   // Los atajos salen de la tabla real: ⌘ en Mac, Ctrl en el resto.
   await expect(panel.locator('.help__key', { hasText: Mod === 'Meta' ? '⌘K' : 'Ctrl+K' })).toHaveCount(1);
 
@@ -755,4 +769,131 @@ test('con «reducir movimiento» no hay fundidos, ni scroll suave, ni parpadeo d
       .last()
       .evaluate((n) => getComputedStyle(n).transitionDuration),
   ).toBe('0s');
+});
+
+test('cifrar y descifrar varios bloques: guarda, reabre y conserva el texto exacto', async ({ page }) => {
+  test.setTimeout(120_000);
+  const plain = [
+    'Pista visible.',
+    '',
+    '<secret:alfa>',
+    'Contenido secreto uno: 🧪',
+    '  con espacios',
+    '</secret:alfa>',
+    '',
+    'Texto entre bloques.',
+    '<secret:beta>Contenido secreto dos.</secret:beta>',
+    'Final visible.',
+  ].join('\n');
+  await page.goto('/');
+  await createFile(page);
+  await page.locator('.cm-content').click();
+  await page.keyboard.insertText(plain);
+  await waitSaved(page);
+
+  // Con marcas pendientes, Encriptar está en el primer nivel; Desencriptar no aparece.
+  await page.keyboard.press(`${Mod}+k`);
+  await page.waitForSelector('.panel__item');
+  let labels = await page.locator('.panel__item .panel__label').allTextContents();
+  expect(labels).toContain('Encriptar pestaña');
+  expect(labels).not.toContain('Desencriptar pestaña');
+  await page.keyboard.press('Escape');
+
+  await runMenu(page, 'Encriptar pestaña');
+  await expect(page.locator('.notice--visible')).toHaveText('Pestaña encriptada.');
+  await expect(page.locator('.cm-content')).toContainText('<folio-secret:v1:');
+  await expect(page.locator('.cm-content')).not.toContainText('Contenido secreto uno');
+  await expect(page.locator('.cm-content')).not.toContainText('Contenido secreto dos');
+  await waitSaved(page);
+
+  // Ya cifrada: Desencriptar está en el primer nivel y Encriptar desaparece al no quedar pendientes.
+  await page.keyboard.press(`${Mod}+k`);
+  await page.waitForSelector('.panel__item');
+  labels = await page.locator('.panel__item .panel__label').allTextContents();
+  expect(labels).toContain('Desencriptar pestaña');
+  expect(labels).not.toContain('Encriptar pestaña');
+  await page.keyboard.press('Escape');
+
+  const encryptedDisk = await page.evaluate(() => window.__fsRead('folio.txt'));
+  expect(encryptedDisk).toContain('Pista visible.');
+  expect(encryptedDisk).toContain('Texto entre bloques.');
+  expect(encryptedDisk).toContain('Final visible.');
+  expect(encryptedDisk).toContain('<folio-secret:v1:pbkdf2-hmac-sha256:600000:aes-256-gcm:');
+  expect(encryptedDisk).not.toContain('Contenido secreto');
+  expect(encryptedDisk).not.toContain('alfa');
+  expect(encryptedDisk).not.toContain('beta');
+
+  // Cerrar y reabrir: los bloques siguen ahí y se pueden descifrar.
+  await page.reload();
+  await page.getByRole('button', { name: 'OPEN', exact: true }).click();
+  await page.waitForSelector('.cm-editor');
+  await expect(page.locator('.cm-content')).toContainText('<folio-secret:v1:');
+
+  await runMenu(page, 'Desencriptar pestaña');
+  await expect(page.locator('.panel__header')).toHaveText('Desencriptar pestaña');
+  await expect(page.locator('.panel__body p')).toHaveCount(0);
+  await expect(page.locator('.secret-input')).toHaveAttribute('placeholder', 'Contraseña');
+  await page.getByLabel('Contraseña').fill('alfa');
+  await page.getByRole('button', { name: 'Desencriptar' }).click();
+  await expect(page.locator('.cm-content')).toContainText('Contenido secreto uno');
+  await expect(page.locator('.cm-content')).not.toContainText('Contenido secreto dos');
+  await expect(page.locator('.cm-content')).toContainText('<folio-secret:v1:');
+  await expect(page.locator('.notice--visible')).toHaveText(
+    '1 bloque se ha descifrado. 1 bloque no se ha podido descifrar.',
+  );
+  await waitSaved(page);
+  expect(await page.evaluate(() => window.__fsRead('folio.txt'))).toContain('<secret:alfa>');
+
+  await runMenu(page, 'Desencriptar pestaña');
+  await page.getByLabel('Contraseña').fill('beta');
+  await page.getByRole('button', { name: 'Desencriptar' }).click();
+  await expect(page.locator('.cm-content')).not.toContainText('<folio-secret:v1:');
+  await expect(page.locator('.cm-content')).toContainText('Contenido secreto dos');
+  await waitSaved(page);
+  // El contenido restaurado es exactamente el original, incluida la contraseña en las marcas.
+  expect(await page.evaluate(() => window.__fsRead('folio.txt'))).toBe(fileWith(plain));
+
+  await page.keyboard.press(`${Mod}+k`);
+  await page.waitForSelector('.panel__item');
+  labels = await page.locator('.panel__item .panel__label').allTextContents();
+  expect(labels).not.toContain('Desencriptar pestaña');
+  expect(labels).toContain('Encriptar pestaña');
+  await page.keyboard.press('Escape');
+});
+
+test('desencriptar con éxito no muestra ningún aviso', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+  const plain = '<secret:clave>\nContenido recuperado.\n</secret:clave>';
+  await page.locator('.cm-content').click();
+  await page.keyboard.insertText(plain);
+  await waitSaved(page);
+
+  await runMenu(page, 'Encriptar pestaña');
+  await expect(page.locator('.cm-content')).toContainText('<folio-secret:v1:');
+  await waitSaved(page);
+  // Deja desaparecer el aviso del cifrado antes de comprobar el del descifrado.
+  await expect(page.locator('.notice--visible')).toHaveCount(0, { timeout: 5000 });
+
+  await runMenu(page, 'Desencriptar pestaña');
+  await page.getByLabel('Contraseña').fill('clave');
+  await page.getByRole('button', { name: 'Desencriptar' }).click();
+  await expect(page.locator('.cm-content')).toContainText('Contenido recuperado.');
+  await expect(page.locator('.notice--visible')).toHaveCount(0);
+});
+
+test('las marcas incorrectas no ofrecen Encriptar ni modifican la pestaña', async ({ page }) => {
+  await page.goto('/');
+  await createFile(page);
+  const original = 'Texto visible.\n<secret:>\nEste bloque no tiene contraseña.\n</secret:>\nFinal.';
+  await page.locator('.cm-content').click();
+  await page.keyboard.insertText(original);
+  await waitSaved(page);
+
+  const labels = await allMenuLabels(page);
+  expect(labels).not.toContain('Encriptar pestaña');
+  expect(labels).not.toContain('Desencriptar pestaña');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.cm-content')).toContainText('Este bloque no tiene contraseña.');
+  expect(await page.evaluate(() => window.__fsRead('folio.txt'))).toBe(fileWith(original));
 });

@@ -135,6 +135,19 @@ html[data-zen] .cm-editor .cm-link {
   color: inherit;
 }
 
+/* Bloques cifrados: una sola unidad textual, en monoespaciada tenue para distinguirlos del texto.
+   Se pueden seleccionar y borrar enteros, pero no editar a medias (ver editor/secrets.ts). */
+.cm-secret {
+  color: var(--fg-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.cm-secret--broken {
+  text-decoration: underline wavy var(--err);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
 /* Sin cursor colocado en el texto (al abrir, o tras un clic en los márgenes) el cursor no se muestra.
    El selector replica la especificidad de la regla base de CodeMirror que lo hace visible con el foco. */
 html[data-zen] .cm-editor.cm-focused:not(.cm-cursor-placed) > .cm-scroller > .cm-cursorLayer .cm-cursor {

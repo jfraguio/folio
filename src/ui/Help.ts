@@ -43,6 +43,28 @@ export function openHelp(o: HelpOptions): void {
       el('p', { class: 'help__text' }, 'Hasta 10 pestañas, con 10 subpestañas cada una'),
       el('p', { class: 'help__text' }, 'Sólo se pueden eliminar pestañas vacías'),
     ),
+    section(
+      'Bloques cifrados',
+      el(
+        'p',
+        { class: 'help__text' },
+        'Escribe el texto que quieras proteger entre <secret:contraseña> y </secret:contraseña>.',
+      ),
+      el(
+        'pre',
+        { class: 'help__code' },
+        [
+          'Pista visible.',
+          '',
+          '<secret:contraseña>',
+          'Este contenido se cifrará.',
+          'Puede ocupar varias líneas.',
+          '</secret:contraseña>',
+          '',
+          'Este texto seguirá visible.',
+        ].join('\n'),
+      ),
+    ),
     o.touch
       ? null
       : section(
