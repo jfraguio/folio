@@ -1046,7 +1046,7 @@ export async function startSession(o: SessionOptions): Promise<Session | null> {
         when: () => autosave.state === 'error',
         run: async () => {
           if (autosave.lastError === 'permission' && file.handle) {
-            const ok = await FsAccessAdapter.ensurePermission(file.handle);
+            const ok = await FsAccessAdapter.ensurePermission(file.handle).catch(() => false);
             if (!ok) {
               notice('Sin permiso de escritura. Puedes guardar en otro archivo desde el menú.');
               return;

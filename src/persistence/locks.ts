@@ -32,16 +32,18 @@ export async function acquireFileLock(lockKey: string): Promise<FileLock> {
   const tryAcquire = (): Promise<boolean> => {
     if (!navigator.locks) return Promise.resolve(true);
     return new Promise<boolean>((resolve) => {
-      void navigator.locks.request(`${LEGACY.lockPrefix}${lockKey}`, { ifAvailable: true }, (lock) => {
-        if (!lock) {
-          resolve(false);
-          return Promise.resolve();
-        }
-        resolve(true);
-        return new Promise<void>((done) => {
-          release = done;
-        });
-      });
+      void navigator.locks
+        .request(`${LEGACY.lockPrefix}${lockKey}`, { ifAvailable: true }, (lock) => {
+          if (!lock) {
+            resolve(false);
+            return Promise.resolve();
+          }
+          resolve(true);
+          return new Promise<void>((done) => {
+            release = done;
+          });
+        })
+        .catch(() => resolve(true));
     });
   };
 

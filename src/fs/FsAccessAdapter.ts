@@ -71,10 +71,23 @@ export class FsAccessAdapter implements FileAdapter {
     return file.lastModified;
   }
 
-  /** Pide permiso de escritura sobre un handle persistido (requiere gesto de usuario). */
-  static async ensurePermission(handle: FileSystemFileHandle): Promise<boolean> {
+  /**
+   * Pide permiso de escritura sobre un handle persistido (requiere gesto de usuario).
+   * `queryPermission` nunca muestra diálogo; si no responde (handle roto tras una actualización del
+   * navegador), rechaza para que el llamador pueda olvidar el handle en lugar de quedarse colgado.
+   */
+  static async ensurePermission(handle: FileSystemFileHandle, queryTimeoutMs = 1500): Promise<boolean> {
     const opts = { mode: 'readwrite' as const };
-    if ((await handle.queryPermission(opts)) === 'granted') return true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const state = await Promise.race([
+      handle.queryPermission(opts),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('FileSystemHandle.queryPermission timeout')), queryTimeoutMs);
+      }),
+    ]).finally(() => {
+      if (timer !== undefined) clearTimeout(timer);
+    });
+    if (state === 'granted') return true;
     return (await handle.requestPermission(opts)) === 'granted';
   }
 }
